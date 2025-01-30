@@ -1,0 +1,9 @@
+version: "2"
+authtoken: 2lyXopYf7iUQw6q0SgeGQwkMalK_2JD8P7KiuYqzQZvNFki8S
+region: us
+console_ui: true
+tunnels:
+  flask_app:
+    proto: https
+    addr: 5000
+web_addr: localhost:4040 
