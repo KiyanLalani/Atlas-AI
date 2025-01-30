@@ -208,12 +208,12 @@ def generate():
         
         print(f"Sending request to OpenAI with {len(messages)} messages")  # Debug print
         
-        # Generate response using the latest GPT-4 model
+        # Generate response using GPT-4o
         response = client.chat.completions.create(
-            model="gpt-4-turbo-preview",  # Latest GPT-4 model with 128k context
+            model="gpt-4o-2024-08-06",  # Latest stable GPT-4o version
             messages=messages,
             temperature=0.7,
-            max_tokens=4096,
+            max_tokens=16384,  # Maximum output tokens for GPT-4o
             response_format={ "type": "text" }
         )
         
