@@ -40,11 +40,16 @@ else:
     try:
         client = OpenAI(
             api_key=api_key,
-            default_headers={"OpenAI-Beta": "assistants=v1"}
+            max_retries=2,
+            timeout=20.0,
+            default_headers={
+                "OpenAI-Beta": "assistants=v1"
+            }
         )
         print("OpenAI client initialized successfully")
     except Exception as e:
         print(f"Error initializing OpenAI client: {e}")
+        traceback.print_exc()
         client = None
 
 def allowed_file(filename):
@@ -211,16 +216,16 @@ def generate():
         
         print(f"Sending request to OpenAI with {len(messages)} messages")  # Debug print
         
-        # Generate response using GPT-4o
-        response = client.chat.completions.create(
-            model="gpt-4o-2024-08-06",  # Latest stable GPT-4o version
+        # Configure the completion with the latest options
+        completion = client.with_options(timeout=30.0).chat.completions.create(
+            model="gpt-4o",  # Using the base model which points to latest version
             messages=messages,
             temperature=0.7,
-            max_tokens=16384,  # Maximum output tokens for GPT-4o
-            response_format={ "type": "text" }
+            max_tokens=16384,
+            response_format={"type": "text"}
         )
         
-        response_text = response.choices[0].message.content
+        response_text = completion.choices[0].message.content
         print(f"Generated response: {response_text[:200]}...")  # Debug print truncated response
         
         return jsonify({
