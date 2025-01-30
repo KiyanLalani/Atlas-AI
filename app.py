@@ -32,7 +32,15 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 api_key = os.getenv('OPENAI_API_KEY')
 if not api_key:
     print("Warning: OPENAI_API_KEY not found in environment variables")
-client = OpenAI(api_key=api_key)
+
+try:
+    client = OpenAI(
+        api_key=api_key,
+        base_url="https://api.openai.com/v1"  # Explicitly set the base URL
+    )
+except Exception as e:
+    print(f"Error initializing OpenAI client: {e}")
+    client = None
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
