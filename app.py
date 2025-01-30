@@ -38,14 +38,8 @@ if not api_key:
     client = None
 else:
     try:
-        client = OpenAI()  # The client will automatically use OPENAI_API_KEY from environment
-        # Test the client with a simple request
-        test_response = client.chat.completions.create(
-            model="gpt-4",
-            messages=[{"role": "user", "content": "test"}],
-            max_tokens=5
-        )
-        print("OpenAI client initialized and tested successfully")
+        client = OpenAI(api_key=api_key)
+        print("OpenAI client initialized successfully")
     except Exception as e:
         print(f"Error initializing OpenAI client: {e}")
         client = None
