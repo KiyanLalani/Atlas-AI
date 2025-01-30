@@ -2,12 +2,15 @@ services:
   - type: web
     name: atlas-ai-assistant
     env: python
+    region: ohio  # Choose a region close to your users
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.7
       - key: PRODUCTION
         value: true
       - key: OPENAI_API_KEY
-        sync: false 
+        sync: false
+    autoDeploy: true 

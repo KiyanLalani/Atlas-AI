@@ -14,7 +14,10 @@ if not os.getenv('PRODUCTION'):
     load_dotenv()
 
 # Initialize Flask app
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static')
+
+# Enable debug mode in development
+app.config['DEBUG'] = not os.getenv('PRODUCTION', False)
 
 # Configure file upload settings
 UPLOAD_FOLDER = '/tmp/uploads' if os.getenv('PRODUCTION') else 'uploads'
@@ -26,7 +29,10 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Configure OpenAI client
-client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+api_key = os.getenv('OPENAI_API_KEY')
+if not api_key:
+    print("Warning: OPENAI_API_KEY not found in environment variables")
+client = OpenAI(api_key=api_key)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -64,6 +70,15 @@ def read_file_content(filepath):
     except Exception as e:
         print(f"Error reading file {filepath}: {str(e)}")
         return None
+
+@app.route('/health')
+def health_check():
+    """Health check endpoint for Render."""
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': time.time(),
+        'environment': 'production' if os.getenv('PRODUCTION') else 'development'
+    })
 
 @app.route('/')
 def home():
@@ -200,4 +215,7 @@ def generate():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port) 
+    if os.getenv('PRODUCTION'):
+        app.run(host='0.0.0.0', port=port)
+    else:
+        app.run(host='0.0.0.0', port=port, debug=True) 
