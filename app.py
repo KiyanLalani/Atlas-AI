@@ -210,10 +210,11 @@ def generate():
         
         # Generate response using ChatGPT
         response = client.chat.completions.create(
-            model="gpt-4",
+            model="gpt-4-0125-preview",  # Using GPT-4 Turbo
             messages=messages,
             temperature=0.7,
-            max_tokens=2000
+            max_tokens=4096,  # GPT-4 Turbo supports longer responses
+            response_format={ "type": "text" }
         )
         
         response_text = response.choices[0].message.content
