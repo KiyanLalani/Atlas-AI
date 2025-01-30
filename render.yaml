@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: atlas-ai-assistant
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.7
+      - key: PRODUCTION
+        value: true
+      - key: OPENAI_API_KEY
+        sync: false 

@@ -9,8 +9,9 @@ from docx import Document
 import json
 import time
 
-# Load environment variables
-load_dotenv()
+# Load environment variables only in development
+if not os.getenv('PRODUCTION'):
+    load_dotenv()
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -198,8 +199,5 @@ def generate():
         }), 500
 
 if __name__ == '__main__':
-    # Only use these settings when running locally
-    if not os.getenv('PRODUCTION'):
-        app.run(debug=True)
-    else:
-        app.run() 
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port) 
