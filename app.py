@@ -38,7 +38,8 @@ if not api_key:
     client = None
 else:
     try:
-        client = OpenAI(api_key=api_key)
+        os.environ['OPENAI_API_KEY'] = api_key  # Set the API key in environment
+        client = OpenAI()  # Let it use the environment variable directly
         print("OpenAI client initialized successfully")
     except Exception as e:
         print(f"Error initializing OpenAI client: {e}")
