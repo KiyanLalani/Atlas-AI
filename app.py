@@ -13,6 +13,8 @@ import time
 if not os.getenv('PRODUCTION'):
     load_dotenv()
 
+print(f"Starting application in {'production' if os.getenv('PRODUCTION') else 'development'} mode")
+
 # Initialize Flask app
 app = Flask(__name__, static_folder='static')
 
@@ -21,6 +23,7 @@ app.config['DEBUG'] = not os.getenv('PRODUCTION', False)
 
 # Configure file upload settings
 UPLOAD_FOLDER = '/tmp/uploads' if os.getenv('PRODUCTION') else 'uploads'
+print(f"Upload folder configured as: {UPLOAD_FOLDER}")
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'doc', 'docx', 'csv', 'json'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
@@ -80,11 +83,16 @@ def read_file_content(filepath):
 @app.route('/health')
 def health_check():
     """Health check endpoint for Render."""
-    return jsonify({
+    status = {
         'status': 'healthy',
         'timestamp': time.time(),
-        'environment': 'production' if os.getenv('PRODUCTION') else 'development'
-    })
+        'environment': 'production' if os.getenv('PRODUCTION') else 'development',
+        'openai_client': 'initialized' if client is not None else 'not initialized',
+        'upload_folder': UPLOAD_FOLDER,
+        'upload_folder_exists': os.path.exists(UPLOAD_FOLDER)
+    }
+    print(f"Health check: {json.dumps(status)}")
+    return jsonify(status)
 
 @app.route('/')
 def home():
@@ -157,11 +165,17 @@ def upload_file():
 @app.route('/generate', methods=['POST'])
 def generate():
     try:
+        if client is None:
+            return jsonify({
+                'success': False,
+                'error': 'OpenAI client is not initialized. Please check your API key.'
+            }), 503
+
         data = request.json
         prompt = data.get('prompt')
         history = data.get('history', [])
-        file_content = data.get('file_content')  # Get file content directly from request
-        
+        file_content = data.get('file_content')
+
         if not prompt:
             return jsonify({'success': False, 'error': 'No prompt provided'}), 400
 
