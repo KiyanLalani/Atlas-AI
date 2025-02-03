@@ -338,14 +338,23 @@
             <div class="chat-list">
                 {% if chats %}
                     {% for chat_id, messages in chats.items() %}
-                        {% if messages and messages|length > 0 and messages[0] is defined and messages[0].content is defined %}
-                            <a href="#" class="chat-item" onclick="loadChat('{{ chat_id }}')">
-                                <svg class="chat-icon" stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="16" width="16">
-                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                                </svg>
-                                <span class="chat-title">{{ messages[0].content[:30] + '...' if messages[0].content|length > 30 else messages[0].content }}</span>
-                            </a>
+                        {# Set default title for empty chats #}
+                        {% set title = 'New Chat' %}
+                        {% if messages|length > 0 %}
+                            {% set first_msg = messages[0] %}
+                            {% if first_msg and first_msg.content is defined and first_msg.content|trim != '' %}
+                                {% set title = first_msg.content[:30] %}
+                                {% if first_msg.content|length > 30 %}
+                                    {% set title = title ~ '...' %}
+                                {% endif %}
+                            {% endif %}
                         {% endif %}
+                        <a href="#" class="chat-item {% if currentChatId == chat_id %}active{% endif %}" onclick="loadChat('{{ chat_id }}')">
+                            <svg class="chat-icon" stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="16" width="16">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                            </svg>
+                            <span class="chat-title">{{ title }}</span>
+                        </a>
                     {% endfor %}
                 {% endif %}
             </div>
