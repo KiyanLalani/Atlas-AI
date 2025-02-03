@@ -90,6 +90,7 @@
         }
 
         .message-row {
+            position: relative;
             padding: 1.5rem;
             display: flex;
             gap: 1.5rem;
@@ -111,6 +112,7 @@
         }
 
         .message-content {
+            position: relative;
             max-width: 768px;
             margin: 0 auto;
             display: flex;
@@ -233,6 +235,8 @@
             overflow-y: auto;
             margin: 1rem -1rem;
             padding: 0 1rem;
+            display: flex;
+            flex-direction: column-reverse;
         }
 
         .chat-item {
@@ -246,6 +250,8 @@
             color: #e8eaed;
             text-decoration: none;
             margin-bottom: 0.5rem;
+            position: relative;
+            overflow: hidden;
         }
 
         .chat-item:hover {
@@ -258,6 +264,7 @@
 
         .chat-icon {
             color: #8e2de2;
+            flex-shrink: 0;
         }
 
         .chat-title {
@@ -265,6 +272,7 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            font-size: 0.9rem;
         }
 
         .file-preview {
@@ -297,6 +305,12 @@
             color: #e8eaed;
             font-size: 0.9rem;
             line-height: 1.5;
+        }
+
+        .message-timestamp {
+            font-size: 0.8rem;
+            color: #9aa0a6;
+            margin-bottom: 0.5rem;
         }
     </style>
 </head>
@@ -378,12 +392,54 @@
         let currentFileContent = null;
         let currentChatId = null;
 
+        // Function to format timestamp
+        function formatTimestamp(timestamp) {
+            const date = new Date(timestamp * 1000);
+            return date.toLocaleString();
+        }
+
+        // Function to get first message of chat as title
+        function getChatTitle(messages) {
+            if (messages && messages.length > 0) {
+                const firstMessage = messages[0].content;
+                return firstMessage.length > 30 ? firstMessage.substring(0, 30) + '...' : firstMessage;
+            }
+            return 'New Chat';
+        }
+
+        function updateChatList() {
+            fetch('/api/chats')
+                .then(response => response.json())
+                .then(data => {
+                    const chatList = document.querySelector('.chat-list');
+                    chatList.innerHTML = '';
+                    
+                    Object.entries(data.chats).forEach(([chatId, messages]) => {
+                        const chatTitle = getChatTitle(messages);
+                        const chatItem = document.createElement('a');
+                        chatItem.href = '#';
+                        chatItem.className = `chat-item ${currentChatId === chatId ? 'active' : ''}`;
+                        chatItem.onclick = () => loadChat(chatId);
+                        
+                        chatItem.innerHTML = `
+                            <svg class="chat-icon" stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="16" width="16">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                            </svg>
+                            <span class="chat-title">${chatTitle}</span>
+                        `;
+                        
+                        chatList.appendChild(chatItem);
+                    });
+                });
+        }
+
         function startNewChat() {
             currentChatId = null;
             conversationHistory = [];
             document.getElementById('chat-history').innerHTML = '';
             document.getElementById('welcome-message').style.display = 'block';
             document.querySelectorAll('.chat-item').forEach(item => item.classList.remove('active'));
+            updateChatList();
         }
 
         function loadChat(chatId) {
@@ -393,7 +449,7 @@
             
             // Update active state
             document.querySelectorAll('.chat-item').forEach(item => {
-                item.classList.toggle('active', item.textContent.includes(`Chat ${chatId}`));
+                item.classList.toggle('active', item.querySelector('.chat-title').textContent === getChatTitle(CHATS[chatId]));
             });
             
             // Clear current chat display
@@ -405,12 +461,14 @@
                 .then(data => {
                     conversationHistory = data.messages || [];
                     conversationHistory.forEach(msg => {
-                        addMessageToHistory(msg.content, msg.role === 'user');
+                        addMessageToHistory(msg.content, msg.role === 'user', msg.timestamp);
                     });
                 });
         }
 
-        function addMessageToHistory(message, isUser) {
+        function addMessageToHistory(message, isUser, timestamp = null) {
+            document.getElementById('welcome-message').style.display = 'none';
+            
             const messageRow = document.createElement('div');
             messageRow.className = `message-row ${isUser ? 'user-message' : 'assistant-message'}`;
             
@@ -419,11 +477,18 @@
             
             const avatar = document.createElement('div');
             avatar.className = `avatar ${isUser ? 'user-avatar' : 'assistant-avatar'}`;
-            avatar.textContent = isUser ? 'U' : 'A';
+            avatar.textContent = isUser ? '{{ display_name[0] }}' : 'A';
             
             const messageText = document.createElement('div');
             messageText.className = 'message-text';
             messageText.innerHTML = message;
+            
+            if (timestamp) {
+                const timestampDiv = document.createElement('div');
+                timestampDiv.className = 'message-timestamp';
+                timestampDiv.textContent = formatTimestamp(timestamp);
+                messageContent.appendChild(timestampDiv);
+            }
             
             messageContent.appendChild(avatar);
             messageContent.appendChild(messageText);
@@ -449,10 +514,10 @@
             
             // Clear input
             document.getElementById('user-input').value = '';
-            document.getElementById('user-input').style.height = '52px';
+            document.getElementById('user-input').style.height = '56px';
             
             // Add user message to chat
-            addMessageToHistory(userInput, true);
+            addMessageToHistory(userInput, true, Date.now() / 1000);
             
             try {
                 const response = await fetch('/api/chat', {
@@ -470,6 +535,7 @@
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
                 let assistantMessage = '';
+                let messageElement = null;
                 
                 while (true) {
                     const {value, done} = await reader.read();
@@ -483,12 +549,20 @@
                             try {
                                 const data = JSON.parse(line.slice(6));
                                 assistantMessage += data.content;
-                                // Update the last message in chat history
-                                const lastMessage = document.querySelector('.message-row:last-child .message-text');
-                                if (lastMessage) {
-                                    lastMessage.innerHTML = assistantMessage;
-                                } else {
-                                    addMessageToHistory(assistantMessage, false);
+                                
+                                if (!messageElement) {
+                                    addMessageToHistory('', false, Date.now() / 1000);
+                                    messageElement = document.querySelector('.message-row:last-child .message-text');
+                                }
+                                
+                                if (messageElement) {
+                                    messageElement.innerHTML = assistantMessage;
+                                }
+                                
+                                // Update chat list after receiving chat_id
+                                if (data.chat_id) {
+                                    currentChatId = data.chat_id;
+                                    updateChatList();
                                 }
                             } catch (e) {
                                 console.error('Error parsing SSE data:', e);
@@ -560,6 +634,9 @@
                 loading.style.display = 'none';
             }
         });
+
+        // Initial chat list load
+        updateChatList();
     </script>
 </body>
 </html> 

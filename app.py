@@ -145,21 +145,25 @@ def chat():
     
     username = session.get('username')
     
-    # Initialize chat if it doesn't exist
-    if not chat_id:
-        chat_id = str(len(CHATS.get(username, {})) + 1)
-    
+    # Initialize chat storage if needed
     if username not in CHATS:
         CHATS[username] = {}
     
+    # Create new chat if no chat_id provided
+    if not chat_id:
+        chat_id = str(int(time.time()))  # Use timestamp as chat_id
+        CHATS[username][chat_id] = []
+    
+    # Ensure chat exists
     if chat_id not in CHATS[username]:
         CHATS[username][chat_id] = []
     
     # Add user message to chat history
-    CHATS[username][chat_id].append({'role': 'user', 'content': user_input})
-    
-    # Initialize OpenAI client
-    client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'), default_headers={"OpenAI-Beta": "assistants=v1"})
+    CHATS[username][chat_id].append({
+        'role': 'user',
+        'content': user_input,
+        'timestamp': time.time()
+    })
     
     try:
         # Generate AI response
@@ -167,7 +171,7 @@ def chat():
             model="gpt-4",
             messages=[
                 {'role': 'system', 'content': 'You are Atlas AI, a helpful assistant.'},
-                *CHATS[username][chat_id]
+                *[{'role': msg['role'], 'content': msg['content']} for msg in CHATS[username][chat_id]]
             ],
             stream=True
         )
@@ -178,10 +182,14 @@ def chat():
                 if chunk.choices[0].delta.content:
                     content = chunk.choices[0].delta.content
                     response_content += content
-                    yield f"data: {json.dumps({'content': content})}\n\n"
+                    yield f"data: {json.dumps({'content': content, 'chat_id': chat_id})}\n\n"
             
             # Save AI response to chat history
-            CHATS[username][chat_id].append({'role': 'assistant', 'content': response_content})
+            CHATS[username][chat_id].append({
+                'role': 'assistant',
+                'content': response_content,
+                'timestamp': time.time()
+            })
             
         return generate(), {'Content-Type': 'text/event-stream'}
     
@@ -205,6 +213,17 @@ def get_chat(chat_id):
             return jsonify({'messages': CHATS[username][chat_id]})
     
     return jsonify({'messages': []})
+
+@app.route('/api/chats')
+@login_required
+def get_chats():
+    username = session.get('username')
+    is_admin = session.get('is_admin', False)
+    
+    if is_admin:
+        return jsonify({'chats': CHATS})
+    else:
+        return jsonify({'chats': CHATS.get(username, {})})
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
