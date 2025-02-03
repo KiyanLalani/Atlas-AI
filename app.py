@@ -135,6 +135,24 @@ def index():
                          is_admin=is_admin,
                          chats=user_chats)
 
+@app.route('/api/new-chat', methods=['POST'])
+@login_required
+def new_chat():
+    username = session.get('username')
+    
+    # Initialize chat storage if needed
+    if username not in CHATS:
+        CHATS[username] = {}
+    
+    # Create new chat ID using timestamp
+    new_chat_id = str(int(time.time()))
+    CHATS[username][new_chat_id] = []
+    
+    return jsonify({
+        'success': True,
+        'chat_id': new_chat_id
+    })
+
 @app.route('/api/chat', methods=['POST'])
 @login_required
 def chat():

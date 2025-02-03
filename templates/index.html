@@ -414,32 +414,62 @@
                     const chatList = document.querySelector('.chat-list');
                     chatList.innerHTML = '';
                     
-                    Object.entries(data.chats).forEach(([chatId, messages]) => {
-                        const chatTitle = getChatTitle(messages);
-                        const chatItem = document.createElement('a');
-                        chatItem.href = '#';
-                        chatItem.className = `chat-item ${currentChatId === chatId ? 'active' : ''}`;
-                        chatItem.onclick = () => loadChat(chatId);
-                        
-                        chatItem.innerHTML = `
-                            <svg class="chat-icon" stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="16" width="16">
-                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                            </svg>
-                            <span class="chat-title">${chatTitle}</span>
-                        `;
-                        
-                        chatList.appendChild(chatItem);
+                    // Sort chats by timestamp (newest first)
+                    const sortedChats = Object.entries(data.chats).sort((a, b) => {
+                        const aTime = a[1][0]?.timestamp || 0;
+                        const bTime = b[1][0]?.timestamp || 0;
+                        return bTime - aTime;
+                    });
+                    
+                    sortedChats.forEach(([chatId, messages]) => {
+                        if (messages && messages.length > 0) {
+                            const chatTitle = messages[0].content;
+                            const truncatedTitle = chatTitle.length > 30 ? chatTitle.substring(0, 30) + '...' : chatTitle;
+                            
+                            const chatItem = document.createElement('a');
+                            chatItem.href = '#';
+                            chatItem.className = `chat-item ${currentChatId === chatId ? 'active' : ''}`;
+                            chatItem.onclick = () => loadChat(chatId);
+                            
+                            chatItem.innerHTML = `
+                                <svg class="chat-icon" stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="16" width="16">
+                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                                </svg>
+                                <span class="chat-title">${truncatedTitle}</span>
+                            `;
+                            
+                            chatList.appendChild(chatItem);
+                        }
                     });
                 });
         }
 
         function startNewChat() {
-            currentChatId = null;
-            conversationHistory = [];
-            document.getElementById('chat-history').innerHTML = '';
-            document.getElementById('welcome-message').style.display = 'block';
-            document.querySelectorAll('.chat-item').forEach(item => item.classList.remove('active'));
-            updateChatList();
+            // Save current chat if it exists and has messages
+            if (currentChatId && document.getElementById('chat-history').children.length > 0) {
+                // Current chat is already saved, just update the list
+                updateChatList();
+            }
+            
+            // Create new chat
+            fetch('/api/new-chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentChatId = data.chat_id;
+                    conversationHistory = [];
+                    document.getElementById('chat-history').innerHTML = '';
+                    document.getElementById('welcome-message').style.display = 'block';
+                    document.querySelectorAll('.chat-item').forEach(item => item.classList.remove('active'));
+                    updateChatList();
+                }
+            })
+            .catch(error => console.error('Error creating new chat:', error));
         }
 
         function loadChat(chatId) {
@@ -516,6 +546,9 @@
             document.getElementById('user-input').value = '';
             document.getElementById('user-input').style.height = '56px';
             
+            // Hide welcome message if visible
+            document.getElementById('welcome-message').style.display = 'none';
+            
             // Add user message to chat
             addMessageToHistory(userInput, true, Date.now() / 1000);
             
@@ -570,6 +603,9 @@
                         }
                     }
                 }
+                
+                // Update chat list after completion
+                updateChatList();
             } catch (error) {
                 console.error('Error:', error);
             }
