@@ -56,10 +56,30 @@ else:
 
 # User database
 USERS = {
-    'SL': {'password': 'AI1', 'is_admin': False},
-    'MH': {'password': 'AI2', 'is_admin': False},
-    'Unknown': {'password': 'AI3', 'is_admin': False},
-    'KL': {'password': 'Admin', 'is_admin': True}
+    'SL': {
+        'password': 'AI1',
+        'is_admin': False,
+        'full_name': 'Salma Lalani',
+        'display_name': 'Salma'
+    },
+    'MH': {
+        'password': 'AI2',
+        'is_admin': False,
+        'full_name': 'Michael Haggar',
+        'display_name': 'Michael'
+    },
+    'Unknown': {
+        'password': 'AI3',
+        'is_admin': False,
+        'full_name': 'Unknown User',
+        'display_name': 'Unknown'
+    },
+    'KL': {
+        'password': 'Admin',
+        'is_admin': True,
+        'full_name': 'Kiyan Lalani',
+        'display_name': 'Kiyan'
+    }
 }
 
 # Store chats in memory (in production, use a proper database)
@@ -98,14 +118,22 @@ def logout():
 def index():
     username = session.get('username')
     is_admin = session.get('is_admin', False)
+    user_info = USERS[username]
     
     # Get user's chats or all chats for admin
     if is_admin:
         user_chats = CHATS
     else:
-        user_chats = CHATS.get(username, {})
+        if username not in CHATS:
+            CHATS[username] = {}
+        user_chats = CHATS[username]
     
-    return render_template('index.html', username=username, is_admin=is_admin, chats=user_chats)
+    return render_template('index.html',
+                         username=username,
+                         display_name=user_info['display_name'],
+                         full_name=user_info['full_name'],
+                         is_admin=is_admin,
+                         chats=user_chats)
 
 @app.route('/api/chat', methods=['POST'])
 @login_required

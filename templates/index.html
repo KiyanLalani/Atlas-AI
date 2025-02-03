@@ -5,18 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Atlas AI Assistant</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Söhne:wght@400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap');
         
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: Söhne, -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: 'Google Sans', -apple-system, BlinkMacSystemFont, sans-serif;
         }
 
         body {
-            background-color: #343541;
-            color: #ECECF1;
+            background-color: #1f1f1f;
+            color: #e8eaed;
             line-height: 1.5;
         }
 
@@ -27,10 +27,11 @@
 
         .sidebar {
             width: 260px;
-            background: #202123;
+            background: #2d2d2d;
             padding: 1rem;
             display: flex;
             flex-direction: column;
+            border-right: 1px solid rgba(255,255,255,0.1);
         }
 
         .main-content {
@@ -41,10 +42,32 @@
             overflow-y: auto;
         }
 
+        .welcome-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            opacity: 0.7;
+        }
+
+        .welcome-message h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(45deg, #8e2de2, #4a00e0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .welcome-message p {
+            font-size: 1.2rem;
+            color: #9aa0a6;
+        }
+
         .new-chat-button {
-            background: transparent;
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 6px;
+            background: #8e2de2;
+            border: none;
+            border-radius: 8px;
             padding: 12px;
             color: #FFFFFF;
             display: flex;
@@ -57,13 +80,13 @@
         }
 
         .new-chat-button:hover {
-            background: rgba(255,255,255,0.1);
+            background: #4a00e0;
         }
 
         .chat-container {
             flex-grow: 1;
             overflow-y: auto;
-            padding-bottom: 150px;
+            padding-bottom: 100px;
         }
 
         .message-row {
@@ -71,14 +94,20 @@
             display: flex;
             gap: 1.5rem;
             border-bottom: 1px solid rgba(255,255,255,0.1);
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .user-message {
-            background: #343541;
+            background: #2d2d2d;
         }
 
         .assistant-message {
-            background: #444654;
+            background: #1f1f1f;
         }
 
         .message-content {
@@ -91,25 +120,27 @@
         }
 
         .avatar {
-            width: 30px;
-            height: 30px;
-            border-radius: 2px;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
+            font-weight: 500;
         }
 
         .user-avatar {
-            background: #5436DA;
+            background: linear-gradient(45deg, #8e2de2, #4a00e0);
         }
 
         .assistant-avatar {
-            background: #19C37D;
+            background: linear-gradient(45deg, #4a00e0, #8e2de2);
         }
 
         .message-text {
             flex-grow: 1;
             white-space: pre-wrap;
+            line-height: 1.6;
         }
 
         .input-container {
@@ -118,7 +149,7 @@
             left: 260px;
             right: 0;
             padding: 1.5rem;
-            background: #343541;
+            background: #1f1f1f;
             border-top: 1px solid rgba(255,255,255,0.1);
         }
 
@@ -130,204 +161,103 @@
 
         .message-input {
             width: 100%;
-            background: #40414F;
+            background: #2d2d2d;
             border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 6px;
-            padding: 1rem 3rem 1rem 1rem;
-            color: #ECECF1;
+            border-radius: 24px;
+            padding: 1rem 4rem 1rem 1.5rem;
+            color: #e8eaed;
             font-size: 1rem;
             line-height: 1.5;
             resize: none;
-            height: 52px;
+            height: 56px;
             max-height: 200px;
             overflow-y: auto;
+            transition: border-color 0.2s, box-shadow 0.2s;
         }
 
         .message-input:focus {
             outline: none;
-            border-color: rgba(255,255,255,0.2);
+            border-color: #8e2de2;
+            box-shadow: 0 0 0 2px rgba(142, 45, 226, 0.2);
         }
 
         .send-button {
             position: absolute;
-            right: 1rem;
-            bottom: 0.75rem;
+            right: 0.5rem;
+            bottom: 50%;
+            transform: translateY(50%);
             background: transparent;
             border: none;
-            color: #ECECF1;
+            color: #8e2de2;
             cursor: pointer;
-            padding: 0.25rem;
-            border-radius: 4px;
-            opacity: 0.5;
-            transition: opacity 0.2s;
+            padding: 0.5rem;
+            border-radius: 50%;
+            opacity: 0.8;
+            transition: all 0.2s;
         }
 
         .send-button:hover {
             opacity: 1;
-            background: rgba(255,255,255,0.1);
+            background: rgba(142, 45, 226, 0.1);
         }
 
-        .file-upload {
-            padding: 1rem;
-            border-top: 1px solid rgba(255,255,255,0.1);
-        }
-
-        .file-input-wrapper {
-            position: relative;
-            margin-bottom: 1rem;
-        }
-
-        .file-input {
-            width: 100%;
-            padding: 0.75rem;
-            background: #40414F;
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 6px;
-            color: #ECECF1;
-            cursor: pointer;
-        }
-
-        .file-preview {
-            background: #40414F;
-            border-radius: 6px;
-            padding: 1rem;
-            margin-top: 1rem;
-            display: none;
-        }
-
-        .file-preview.visible {
-            display: block;
-        }
-
-        .preview-content {
-            max-height: 200px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            color: #ECECF1;
-            font-size: 0.9rem;
-            padding: 0.5rem;
-        }
-
-        /* Loading animation */
-        .loading {
-            display: inline-flex;
-            gap: 4px;
-            align-items: center;
-            padding: 0.5rem;
-        }
-
-        .loading div {
-            width: 4px;
-            height: 4px;
-            background: #ECECF1;
-            border-radius: 50%;
-            animation: loading 1.4s infinite;
-        }
-
-        .loading div:nth-child(2) { animation-delay: 0.2s; }
-        .loading div:nth-child(3) { animation-delay: 0.4s; }
-
-        @keyframes loading {
-            0%, 100% { opacity: 0.2; }
-            50% { opacity: 1; }
-        }
-
-        /* Scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
+        .file-upload-button {
+            position: absolute;
+            right: 3rem;
+            bottom: 50%;
+            transform: translateY(50%);
             background: transparent;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: rgba(255,255,255,0.1);
-            border-radius: 4px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: rgba(255,255,255,0.2);
-        }
-
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.75rem;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            margin-bottom: 1rem;
-        }
-
-        .user-avatar {
-            width: 32px;
-            height: 32px;
-            background: #5436DA;
-            border-radius: 4px;
+            border: none;
+            color: #8e2de2;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 50%;
+            opacity: 0.8;
+            transition: all 0.2s;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: white;
-            font-weight: 500;
         }
 
-        .user-details {
-            flex-grow: 1;
-        }
-
-        .user-name {
-            font-weight: 500;
-            font-size: 0.9rem;
-        }
-
-        .user-role {
-            font-size: 0.8rem;
-            opacity: 0.7;
-        }
-
-        .logout-button {
-            background: transparent;
-            border: none;
-            color: #ECECF1;
-            opacity: 0.7;
-            cursor: pointer;
-            padding: 0.5rem;
-            border-radius: 4px;
-        }
-
-        .logout-button:hover {
+        .file-upload-button:hover {
             opacity: 1;
-            background: rgba(255,255,255,0.1);
+            background: rgba(142, 45, 226, 0.1);
+        }
+
+        .file-upload-button input[type="file"] {
+            display: none;
         }
 
         .chat-list {
             flex-grow: 1;
             overflow-y: auto;
+            margin: 1rem -1rem;
+            padding: 0 1rem;
         }
 
         .chat-item {
-            padding: 0.75rem;
-            border-radius: 6px;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
             cursor: pointer;
-            transition: background-color 0.2s;
+            transition: all 0.2s;
             display: flex;
             align-items: center;
             gap: 0.75rem;
-            color: #ECECF1;
+            color: #e8eaed;
             text-decoration: none;
+            margin-bottom: 0.5rem;
         }
 
         .chat-item:hover {
-            background: rgba(255,255,255,0.1);
+            background: rgba(142, 45, 226, 0.1);
         }
 
         .chat-item.active {
-            background: rgba(255,255,255,0.1);
+            background: rgba(142, 45, 226, 0.2);
         }
 
         .chat-icon {
-            opacity: 0.7;
+            color: #8e2de2;
         }
 
         .chat-title {
@@ -336,6 +266,38 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
+
+        .file-preview {
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            right: 0;
+            background: #2d2d2d;
+            border-radius: 8px;
+            margin: 1rem;
+            max-width: 768px;
+            margin: 1rem auto;
+            display: none;
+        }
+
+        .file-preview.visible {
+            display: block;
+            animation: slideUp 0.3s ease-out;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .preview-content {
+            padding: 1rem;
+            max-height: 200px;
+            overflow-y: auto;
+            color: #e8eaed;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
     </style>
 </head>
 <body>
@@ -343,10 +305,10 @@
         <aside class="sidebar">
             <div class="user-info">
                 <div class="user-avatar">
-                    {{ username[0] }}
+                    {{ display_name[0] }}
                 </div>
                 <div class="user-details">
-                    <div class="user-name">{{ username }}</div>
+                    <div class="user-name">{{ display_name }}</div>
                     <div class="user-role">{% if is_admin %}Admin{% else %}User{% endif %}</div>
                 </div>
                 <a href="/logout" class="logout-button">
@@ -367,26 +329,15 @@
                 </a>
                 {% endfor %}
             </div>
-
-            <div class="file-upload">
-                <form id="file-form">
-                    <div class="file-input-wrapper">
-                        <input 
-                            type="file" 
-                            id="file-input" 
-                            class="file-input"
-                            accept=".txt,.pdf,.doc,.docx,.csv,.json"
-                        >
-                    </div>
-                    <div id="file-preview" class="file-preview">
-                        <div id="file-content" class="preview-content"></div>
-                    </div>
-                </form>
-            </div>
         </aside>
 
         <main class="main-content">
             <div id="chat-history" class="chat-container"></div>
+            
+            <div class="welcome-message" id="welcome-message">
+                <h1>Welcome, {{ display_name }}</h1>
+                <p>How can I help you today?</p>
+            </div>
             
             <div class="input-container">
                 <form id="chat-form" class="input-form">
@@ -397,10 +348,26 @@
                         rows="1"
                         required
                     ></textarea>
+                    <label class="file-upload-button">
+                        <input 
+                            type="file" 
+                            id="file-input"
+                            accept=".txt,.pdf,.doc,.docx,.csv,.json"
+                        >
+                        <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="20" width="20">
+                            <path d="M12 5v14M5 12h14"/>
+                        </svg>
+                    </label>
                     <button type="submit" class="send-button">
-                        <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="16" width="16"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                        <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="20" width="20">
+                            <line x1="22" y1="2" x2="11" y2="13"></line>
+                            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                        </svg>
                     </button>
                 </form>
+                <div id="file-preview" class="file-preview">
+                    <div id="file-content" class="preview-content"></div>
+                </div>
             </div>
         </main>
     </div>
@@ -415,11 +382,15 @@
             currentChatId = null;
             conversationHistory = [];
             document.getElementById('chat-history').innerHTML = '';
+            document.getElementById('welcome-message').style.display = 'block';
             document.querySelectorAll('.chat-item').forEach(item => item.classList.remove('active'));
         }
 
         function loadChat(chatId) {
             currentChatId = chatId;
+            // Hide welcome message
+            document.getElementById('welcome-message').style.display = 'none';
+            
             // Update active state
             document.querySelectorAll('.chat-item').forEach(item => {
                 item.classList.toggle('active', item.textContent.includes(`Chat ${chatId}`));
