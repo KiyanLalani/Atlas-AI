@@ -209,10 +209,34 @@ def chat():
                 'timestamp': time.time()
             })
             
+            # Save chats to file after each response
+            save_chats_to_file()
+            
         return generate(), {'Content-Type': 'text/event-stream'}
     
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+def save_chats_to_file():
+    """Save chats to a file for persistence"""
+    try:
+        with open('chats.json', 'w') as f:
+            json.dump(CHATS, f)
+    except Exception as e:
+        print(f"Error saving chats: {e}")
+
+def load_chats_from_file():
+    """Load chats from file on startup"""
+    global CHATS
+    try:
+        if os.path.exists('chats.json'):
+            with open('chats.json', 'r') as f:
+                CHATS = json.load(f)
+    except Exception as e:
+        print(f"Error loading chats: {e}")
+
+# Load chats when the application starts
+load_chats_from_file()
 
 @app.route('/api/chat/<chat_id>')
 @login_required

@@ -423,13 +423,16 @@
                     
                     sortedChats.forEach(([chatId, messages]) => {
                         if (messages && messages.length > 0) {
-                            const chatTitle = messages[0].content;
-                            const truncatedTitle = chatTitle.length > 30 ? chatTitle.substring(0, 30) + '...' : chatTitle;
+                            const firstMessage = messages[0].content;
+                            const truncatedTitle = firstMessage.length > 30 ? firstMessage.substring(0, 30) + '...' : firstMessage;
                             
                             const chatItem = document.createElement('a');
                             chatItem.href = '#';
                             chatItem.className = `chat-item ${currentChatId === chatId ? 'active' : ''}`;
-                            chatItem.onclick = () => loadChat(chatId);
+                            chatItem.onclick = (e) => {
+                                e.preventDefault();
+                                loadChat(chatId);
+                            };
                             
                             chatItem.innerHTML = `
                                 <svg class="chat-icon" stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="16" width="16">
@@ -445,12 +448,6 @@
         }
 
         function startNewChat() {
-            // Save current chat if it exists and has messages
-            if (currentChatId && document.getElementById('chat-history').children.length > 0) {
-                // Current chat is already saved, just update the list
-                updateChatList();
-            }
-            
             // Create new chat
             fetch('/api/new-chat', {
                 method: 'POST',
@@ -461,11 +458,13 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
+                    // Clear the current chat display
                     currentChatId = data.chat_id;
                     conversationHistory = [];
                     document.getElementById('chat-history').innerHTML = '';
                     document.getElementById('welcome-message').style.display = 'block';
-                    document.querySelectorAll('.chat-item').forEach(item => item.classList.remove('active'));
+                    
+                    // Update chat list to show all chats including the previous one
                     updateChatList();
                 }
             })
@@ -479,7 +478,7 @@
             
             // Update active state
             document.querySelectorAll('.chat-item').forEach(item => {
-                item.classList.toggle('active', item.querySelector('.chat-title').textContent === getChatTitle(CHATS[chatId]));
+                item.classList.remove('active');
             });
             
             // Clear current chat display
@@ -493,6 +492,20 @@
                     conversationHistory.forEach(msg => {
                         addMessageToHistory(msg.content, msg.role === 'user', msg.timestamp);
                     });
+                    
+                    // Update active state after loading
+                    document.querySelectorAll('.chat-item').forEach(item => {
+                        if (item.querySelector('.chat-title').textContent === 
+                            (conversationHistory[0]?.content.length > 30 
+                                ? conversationHistory[0].content.substring(0, 30) + '...' 
+                                : conversationHistory[0]?.content)) {
+                            item.classList.add('active');
+                        }
+                    });
+                    
+                    // Scroll to bottom
+                    const chatHistory = document.getElementById('chat-history');
+                    chatHistory.scrollTop = chatHistory.scrollHeight;
                 });
         }
 
