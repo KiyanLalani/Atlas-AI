@@ -162,19 +162,23 @@ def chat():
     file_content = data.get('file_content')
     
     username = session.get('username')
+    print(f"Processing chat for user {username}, chat_id: {chat_id}")
     
     # Initialize chat storage if needed
     if username not in CHATS:
         CHATS[username] = {}
+        print(f"Initialized chat storage for user {username}")
     
     # Create new chat if no chat_id provided
     if not chat_id:
-        chat_id = str(int(time.time()))  # Use timestamp as chat_id
+        chat_id = str(int(time.time()))
         CHATS[username][chat_id] = []
+        print(f"Created new chat {chat_id} for user {username}")
     
     # Ensure chat exists
     if chat_id not in CHATS[username]:
         CHATS[username][chat_id] = []
+        print(f"Initialized chat {chat_id} for user {username}")
     
     # Add user message to chat history
     CHATS[username][chat_id].append({
@@ -182,6 +186,10 @@ def chat():
         'content': user_input,
         'timestamp': time.time()
     })
+    
+    # Save chats after adding user message
+    save_chats_to_file()
+    print(f"Saved chat after user message. Current chats: {json.dumps(CHATS, indent=2)}")
     
     try:
         # Generate AI response
@@ -209,21 +217,26 @@ def chat():
                 'timestamp': time.time()
             })
             
-            # Save chats to file after each response
+            # Save chats after AI response
             save_chats_to_file()
+            print(f"Saved chat after AI response. Current chats: {json.dumps(CHATS, indent=2)}")
             
         return generate(), {'Content-Type': 'text/event-stream'}
     
     except Exception as e:
+        print(f"Error in chat endpoint: {e}")
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 def save_chats_to_file():
     """Save chats to a file for persistence"""
     try:
         with open('chats.json', 'w') as f:
-            json.dump(CHATS, f)
+            json.dump(CHATS, f, indent=2)
+        print("Chats saved successfully")
     except Exception as e:
         print(f"Error saving chats: {e}")
+        traceback.print_exc()
 
 def load_chats_from_file():
     """Load chats from file on startup"""
@@ -232,8 +245,13 @@ def load_chats_from_file():
         if os.path.exists('chats.json'):
             with open('chats.json', 'r') as f:
                 CHATS = json.load(f)
+            print("Chats loaded successfully")
+            print(f"Loaded chats: {json.dumps(CHATS, indent=2)}")
+        else:
+            print("No existing chats file found")
     except Exception as e:
         print(f"Error loading chats: {e}")
+        traceback.print_exc()
 
 # Load chats when the application starts
 load_chats_from_file()
@@ -263,9 +281,12 @@ def get_chats():
     is_admin = session.get('is_admin', False)
     
     if is_admin:
-        return jsonify({'chats': CHATS})
+        chats_data = CHATS
     else:
-        return jsonify({'chats': CHATS.get(username, {})})
+        chats_data = CHATS.get(username, {})
+    
+    print(f"Returning chats for user {username}: {json.dumps(chats_data, indent=2)}")
+    return jsonify({'chats': chats_data})
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
