@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask import Flask, render_template, request, jsonify, send_from_directory, session, redirect, url_for
 from openai import OpenAI
 from dotenv import load_dotenv
 import os
@@ -8,6 +8,7 @@ from PyPDF2 import PdfReader
 from docx import Document
 import json
 import time
+from functools import wraps
 
 # Load environment variables only in development
 if not os.getenv('PRODUCTION'):
@@ -17,6 +18,7 @@ print(f"Starting application in {'production' if os.getenv('PRODUCTION') else 'd
 
 # Initialize Flask app
 app = Flask(__name__, static_folder='static')
+app.secret_key = os.urandom(24)  # For session management
 
 # Enable debug mode in development
 app.config['DEBUG'] = not os.getenv('PRODUCTION', False)
@@ -51,6 +53,130 @@ else:
         print(f"Error initializing OpenAI client: {e}")
         traceback.print_exc()
         client = None
+
+# User database
+USERS = {
+    'SL': {'password': 'AI1', 'is_admin': False},
+    'MH': {'password': 'AI2', 'is_admin': False},
+    'Unknown': {'password': 'AI3', 'is_admin': False},
+    'KL': {'password': 'Admin', 'is_admin': True}
+}
+
+# Store chats in memory (in production, use a proper database)
+CHATS = {}
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'username' not in session:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        if username in USERS and USERS[username]['password'] == password:
+            session['username'] = username
+            session['is_admin'] = USERS[username]['is_admin']
+            return redirect(url_for('index'))
+        
+        return render_template('login.html', error='Invalid credentials')
+    
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
+
+@app.route('/')
+@login_required
+def index():
+    username = session.get('username')
+    is_admin = session.get('is_admin', False)
+    
+    # Get user's chats or all chats for admin
+    if is_admin:
+        user_chats = CHATS
+    else:
+        user_chats = CHATS.get(username, {})
+    
+    return render_template('index.html', username=username, is_admin=is_admin, chats=user_chats)
+
+@app.route('/api/chat', methods=['POST'])
+@login_required
+def chat():
+    data = request.json
+    user_input = data.get('message', '')
+    chat_id = data.get('chat_id')
+    file_content = data.get('file_content')
+    
+    username = session.get('username')
+    
+    # Initialize chat if it doesn't exist
+    if not chat_id:
+        chat_id = str(len(CHATS.get(username, {})) + 1)
+    
+    if username not in CHATS:
+        CHATS[username] = {}
+    
+    if chat_id not in CHATS[username]:
+        CHATS[username][chat_id] = []
+    
+    # Add user message to chat history
+    CHATS[username][chat_id].append({'role': 'user', 'content': user_input})
+    
+    # Initialize OpenAI client
+    client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'), default_headers={"OpenAI-Beta": "assistants=v1"})
+    
+    try:
+        # Generate AI response
+        completion = client.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {'role': 'system', 'content': 'You are Atlas AI, a helpful assistant.'},
+                *CHATS[username][chat_id]
+            ],
+            stream=True
+        )
+        
+        def generate():
+            response_content = ''
+            for chunk in completion:
+                if chunk.choices[0].delta.content:
+                    content = chunk.choices[0].delta.content
+                    response_content += content
+                    yield f"data: {json.dumps({'content': content})}\n\n"
+            
+            # Save AI response to chat history
+            CHATS[username][chat_id].append({'role': 'assistant', 'content': response_content})
+            
+        return generate(), {'Content-Type': 'text/event-stream'}
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/chat/<chat_id>')
+@login_required
+def get_chat(chat_id):
+    username = session.get('username')
+    is_admin = session.get('is_admin', False)
+    
+    if is_admin:
+        # Admin can view any chat
+        for user_chats in CHATS.values():
+            if chat_id in user_chats:
+                return jsonify({'messages': user_chats[chat_id]})
+    else:
+        # Regular users can only view their own chats
+        if username in CHATS and chat_id in CHATS[username]:
+            return jsonify({'messages': CHATS[username][chat_id]})
+    
+    return jsonify({'messages': []})
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -102,10 +228,6 @@ def health_check():
     }
     print(f"Health check: {json.dumps(status)}")
     return jsonify(status)
-
-@app.route('/')
-def home():
-    return render_template('index.html')
 
 @app.route('/upload', methods=['POST'])
 def upload_file():

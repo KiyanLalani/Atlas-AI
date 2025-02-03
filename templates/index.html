@@ -250,15 +250,124 @@
         ::-webkit-scrollbar-thumb:hover {
             background: rgba(255,255,255,0.2);
         }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 1rem;
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            background: #5436DA;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 500;
+        }
+
+        .user-details {
+            flex-grow: 1;
+        }
+
+        .user-name {
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .user-role {
+            font-size: 0.8rem;
+            opacity: 0.7;
+        }
+
+        .logout-button {
+            background: transparent;
+            border: none;
+            color: #ECECF1;
+            opacity: 0.7;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 4px;
+        }
+
+        .logout-button:hover {
+            opacity: 1;
+            background: rgba(255,255,255,0.1);
+        }
+
+        .chat-list {
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+
+        .chat-item {
+            padding: 0.75rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: #ECECF1;
+            text-decoration: none;
+        }
+
+        .chat-item:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .chat-item.active {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .chat-icon {
+            opacity: 0.7;
+        }
+
+        .chat-title {
+            flex-grow: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <aside class="sidebar">
-            <button class="new-chat-button">
+            <div class="user-info">
+                <div class="user-avatar">
+                    {{ username[0] }}
+                </div>
+                <div class="user-details">
+                    <div class="user-name">{{ username }}</div>
+                    <div class="user-role">{% if is_admin %}Admin{% else %}User{% endif %}</div>
+                </div>
+                <a href="/logout" class="logout-button">
+                    <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="16" width="16"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                </a>
+            </div>
+
+            <button class="new-chat-button" onclick="startNewChat()">
                 <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="24" width="24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                 New chat
             </button>
+
+            <div class="chat-list">
+                {% for chat_id, messages in chats.items() %}
+                <a href="#" class="chat-item" onclick="loadChat('{{ chat_id }}')">
+                    <svg class="chat-icon" stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="16" width="16"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                    <span class="chat-title">Chat {{ chat_id }}</span>
+                </a>
+                {% endfor %}
+            </div>
+
             <div class="file-upload">
                 <form id="file-form">
                     <div class="file-input-wrapper">
@@ -300,6 +409,35 @@
         let conversationHistory = [];
         let currentFile = null;
         let currentFileContent = null;
+        let currentChatId = null;
+
+        function startNewChat() {
+            currentChatId = null;
+            conversationHistory = [];
+            document.getElementById('chat-history').innerHTML = '';
+            document.querySelectorAll('.chat-item').forEach(item => item.classList.remove('active'));
+        }
+
+        function loadChat(chatId) {
+            currentChatId = chatId;
+            // Update active state
+            document.querySelectorAll('.chat-item').forEach(item => {
+                item.classList.toggle('active', item.textContent.includes(`Chat ${chatId}`));
+            });
+            
+            // Clear current chat display
+            document.getElementById('chat-history').innerHTML = '';
+            
+            // Load chat history from server
+            fetch(`/api/chat/${chatId}`)
+                .then(response => response.json())
+                .then(data => {
+                    conversationHistory = data.messages || [];
+                    conversationHistory.forEach(msg => {
+                        addMessageToHistory(msg.content, msg.role === 'user');
+                    });
+                });
+        }
 
         function addMessageToHistory(message, isUser) {
             const messageRow = document.createElement('div');
@@ -335,47 +473,60 @@
         document.getElementById('chat-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const userInput = document.getElementById('user-input').value;
-            const submitButton = e.target.querySelector('button');
-            const buttonText = submitButton.querySelector('.button-text');
-            const loading = submitButton.querySelector('.loading');
             
             if (!userInput.trim()) return;
-
-            submitButton.disabled = true;
-            buttonText.style.display = 'none';
-            loading.style.display = 'inline-block';
             
+            // Clear input
+            document.getElementById('user-input').value = '';
+            document.getElementById('user-input').style.height = '52px';
+            
+            // Add user message to chat
             addMessageToHistory(userInput, true);
             
             try {
-                const response = await fetch('./generate', {
+                const response = await fetch('/api/chat', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
+                        'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ 
-                        prompt: userInput,
-                        history: conversationHistory,
+                    body: JSON.stringify({
+                        message: userInput,
+                        chat_id: currentChatId,
                         file_content: currentFileContent
-                    }),
+                    })
                 });
                 
-                const data = await response.json();
-                if (data.success) {
-                    addMessageToHistory(data.response, false);
-                    conversationHistory.push({ role: "user", content: userInput });
-                    conversationHistory.push({ role: "assistant", content: data.response });
-                } else {
-                    addMessageToHistory('An error occurred: ' + data.error, false);
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let assistantMessage = '';
+                
+                while (true) {
+                    const {value, done} = await reader.read();
+                    if (done) break;
+                    
+                    const text = decoder.decode(value);
+                    const lines = text.split('\n');
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                assistantMessage += data.content;
+                                // Update the last message in chat history
+                                const lastMessage = document.querySelector('.message-row:last-child .message-text');
+                                if (lastMessage) {
+                                    lastMessage.innerHTML = assistantMessage;
+                                } else {
+                                    addMessageToHistory(assistantMessage, false);
+                                }
+                            } catch (e) {
+                                console.error('Error parsing SSE data:', e);
+                            }
+                        }
+                    }
                 }
             } catch (error) {
-                addMessageToHistory('An error occurred. Please try again.', false);
                 console.error('Error:', error);
-            } finally {
-                submitButton.disabled = false;
-                buttonText.style.display = 'inline';
-                loading.style.display = 'none';
-                document.getElementById('user-input').value = '';
             }
         });
 
