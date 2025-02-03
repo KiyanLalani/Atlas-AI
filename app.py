@@ -122,11 +122,11 @@ def index():
     
     # Get user's chats or all chats for admin
     if is_admin:
-        user_chats = CHATS
+        user_chats = {k: v for k, v in CHATS.items() if v}  # Only include non-empty chats
     else:
         if username not in CHATS:
             CHATS[username] = {}
-        user_chats = CHATS[username]
+        user_chats = {k: v for k, v in CHATS[username].items() if v}  # Only include non-empty chats
     
     return render_template('index.html',
                          username=username,
@@ -147,6 +147,9 @@ def new_chat():
     # Create new chat ID using timestamp
     new_chat_id = str(int(time.time()))
     CHATS[username][new_chat_id] = []
+    
+    # Save chats after creating new chat
+    save_chats_to_file()
     
     return jsonify({
         'success': True,
@@ -265,11 +268,11 @@ def get_chat(chat_id):
     if is_admin:
         # Admin can view any chat
         for user_chats in CHATS.values():
-            if chat_id in user_chats:
+            if chat_id in user_chats and user_chats[chat_id]:
                 return jsonify({'messages': user_chats[chat_id]})
     else:
         # Regular users can only view their own chats
-        if username in CHATS and chat_id in CHATS[username]:
+        if username in CHATS and chat_id in CHATS[username] and CHATS[username][chat_id]:
             return jsonify({'messages': CHATS[username][chat_id]})
     
     return jsonify({'messages': []})
@@ -281,11 +284,10 @@ def get_chats():
     is_admin = session.get('is_admin', False)
     
     if is_admin:
-        chats_data = CHATS
+        chats_data = {k: v for k, v in CHATS.items() if v and len(v) > 0}
     else:
-        chats_data = CHATS.get(username, {})
+        chats_data = {k: v for k, v in CHATS.get(username, {}).items() if v and len(v) > 0}
     
-    print(f"Returning chats for user {username}: {json.dumps(chats_data, indent=2)}")
     return jsonify({'chats': chats_data})
 
 def allowed_file(filename):
