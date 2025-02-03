@@ -4,75 +4,172 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Atlas AI Assistant</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@300;400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Söhne:wght@400;500;600&display=swap');
         
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: Söhne, -apple-system, BlinkMacSystemFont, sans-serif;
         }
 
         body {
-            background-color: #ffffff;
-            color: #1d1d1f;
+            background-color: #343541;
+            color: #ECECF1;
             line-height: 1.5;
-            -webkit-font-smoothing: antialiased;
         }
 
         .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2rem;
-            opacity: 0;
-            animation: fadeIn 1s ease-out forwards;
+            display: flex;
+            height: 100vh;
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .header {
-            text-align: center;
-            margin-bottom: 4rem;
-            padding: 2rem 0;
-        }
-
-        .header h1 {
-            font-size: 3.5rem;
-            font-weight: 600;
-            background: linear-gradient(135deg, #000000 0%, #666666 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 1rem;
-            letter-spacing: -0.02em;
+        .sidebar {
+            width: 260px;
+            background: #202123;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
         }
 
         .main-content {
-            background: rgba(255, 255, 255, 0.8);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-radius: 24px;
-            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
-            padding: 2rem;
-            margin-bottom: 2rem;
-            transition: all 0.3s ease;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow-y: auto;
         }
 
-        .upload-section {
-            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-            padding-bottom: 2rem;
-            margin-bottom: 2rem;
+        .new-chat-button {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 6px;
+            padding: 12px;
+            color: #FFFFFF;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            width: 100%;
+            margin-bottom: 1rem;
         }
 
-        .upload-title {
-            font-size: 1.5rem;
-            font-weight: 500;
-            margin-bottom: 1.5rem;
-            color: #1d1d1f;
+        .new-chat-button:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .chat-container {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding-bottom: 150px;
+        }
+
+        .message-row {
+            padding: 1.5rem;
+            display: flex;
+            gap: 1.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .user-message {
+            background: #343541;
+        }
+
+        .assistant-message {
+            background: #444654;
+        }
+
+        .message-content {
+            max-width: 768px;
+            margin: 0 auto;
+            display: flex;
+            gap: 1.5rem;
+            padding: 0 1rem;
+            width: 100%;
+        }
+
+        .avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .user-avatar {
+            background: #5436DA;
+        }
+
+        .assistant-avatar {
+            background: #19C37D;
+        }
+
+        .message-text {
+            flex-grow: 1;
+            white-space: pre-wrap;
+        }
+
+        .input-container {
+            position: fixed;
+            bottom: 0;
+            left: 260px;
+            right: 0;
+            padding: 1.5rem;
+            background: #343541;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .input-form {
+            max-width: 768px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .message-input {
+            width: 100%;
+            background: #40414F;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 6px;
+            padding: 1rem 3rem 1rem 1rem;
+            color: #ECECF1;
+            font-size: 1rem;
+            line-height: 1.5;
+            resize: none;
+            height: 52px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .message-input:focus {
+            outline: none;
+            border-color: rgba(255,255,255,0.2);
+        }
+
+        .send-button {
+            position: absolute;
+            right: 1rem;
+            bottom: 0.75rem;
+            background: transparent;
+            border: none;
+            color: #ECECF1;
+            cursor: pointer;
+            padding: 0.25rem;
+            border-radius: 4px;
+            opacity: 0.5;
+            transition: opacity 0.2s;
+        }
+
+        .send-button:hover {
+            opacity: 1;
+            background: rgba(255,255,255,0.1);
+        }
+
+        .file-upload {
+            padding: 1rem;
+            border-top: 1px solid rgba(255,255,255,0.1);
         }
 
         .file-input-wrapper {
@@ -82,192 +179,63 @@
 
         .file-input {
             width: 100%;
-            padding: 1rem;
-            border: 2px dashed rgba(0, 0, 0, 0.1);
-            border-radius: 12px;
-            transition: all 0.3s ease;
+            padding: 0.75rem;
+            background: #40414F;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 6px;
+            color: #ECECF1;
             cursor: pointer;
-        }
-
-        .file-input:hover {
-            border-color: #0071e3;
-        }
-
-        .upload-button {
-            background: #0071e3;
-            color: white;
-            border: none;
-            padding: 0.8rem 1.5rem;
-            border-radius: 12px;
-            font-size: 1rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .upload-button:hover {
-            background: #0077ED;
-            transform: translateY(-1px);
-        }
-
-        .upload-button:active {
-            transform: translateY(0);
-        }
-
-        .chat-container {
-            height: 500px;
-            overflow-y: auto;
-            padding: 1rem;
-            border-radius: 12px;
-            background: rgba(247, 247, 247, 0.5);
-            margin-bottom: 2rem;
-            scroll-behavior: smooth;
-        }
-
-        .message {
-            padding: 1rem;
-            margin-bottom: 1rem;
-            border-radius: 12px;
-            max-width: 80%;
-            opacity: 0;
-            animation: slideIn 0.5s ease-out forwards;
-        }
-
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .user-message {
-            background: #0071e3;
-            color: white;
-            margin-left: auto;
-        }
-
-        .assistant-message {
-            background: white;
-            border: 1px solid rgba(0, 0, 0, 0.1);
-        }
-
-        .input-container {
-            position: relative;
-        }
-
-        .message-input {
-            width: 100%;
-            padding: 1rem;
-            border: 1px solid rgba(0, 0, 0, 0.1);
-            border-radius: 12px;
-            font-size: 1rem;
-            resize: none;
-            transition: all 0.3s ease;
-            background: rgba(247, 247, 247, 0.5);
-        }
-
-        .message-input:focus {
-            outline: none;
-            border-color: #0071e3;
-            box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.1);
-        }
-
-        .send-button {
-            background: #0071e3;
-            color: white;
-            border: none;
-            padding: 1rem 2rem;
-            border-radius: 12px;
-            font-size: 1rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin-top: 1rem;
-            width: 100%;
-        }
-
-        .send-button:hover {
-            background: #0077ED;
-            transform: translateY(-1px);
-        }
-
-        .send-button:active {
-            transform: translateY(0);
-        }
-
-        .send-button:disabled {
-            background: #ccc;
-            cursor: not-allowed;
         }
 
         .file-preview {
-            background: rgba(247, 247, 247, 0.5);
-            border-radius: 12px;
+            background: #40414F;
+            border-radius: 6px;
             padding: 1rem;
             margin-top: 1rem;
             display: none;
-            animation: fadeIn 0.3s ease-out;
         }
 
         .file-preview.visible {
             display: block;
         }
 
-        .preview-title {
-            font-weight: 500;
-            margin-bottom: 0.5rem;
-            color: #1d1d1f;
-        }
-
         .preview-content {
-            font-size: 0.9rem;
-            color: #666;
             max-height: 200px;
             overflow-y: auto;
             white-space: pre-wrap;
+            color: #ECECF1;
+            font-size: 0.9rem;
             padding: 0.5rem;
-            background: white;
-            border-radius: 8px;
         }
 
         /* Loading animation */
         .loading {
-            display: inline-block;
-            position: relative;
-            width: 20px;
-            height: 20px;
+            display: inline-flex;
+            gap: 4px;
+            align-items: center;
+            padding: 0.5rem;
         }
 
         .loading div {
-            position: absolute;
-            width: 6px;
-            height: 6px;
-            background: #0071e3;
+            width: 4px;
+            height: 4px;
+            background: #ECECF1;
             border-radius: 50%;
-            animation: loading 1.2s linear infinite;
+            animation: loading 1.4s infinite;
         }
 
-        .loading div:nth-child(1) { left: 0; animation-delay: 0s; }
-        .loading div:nth-child(2) { left: 8px; animation-delay: 0.4s; }
-        .loading div:nth-child(3) { left: 16px; animation-delay: 0.8s; }
+        .loading div:nth-child(2) { animation-delay: 0.2s; }
+        .loading div:nth-child(3) { animation-delay: 0.4s; }
 
         @keyframes loading {
-            0% { opacity: 0.2; }
-            20% { opacity: 1; }
-            100% { opacity: 0.2; }
+            0%, 100% { opacity: 0.2; }
+            50% { opacity: 1; }
         }
 
-        .uploaded-file {
-            display: inline-block;
-            padding: 0.5rem 1rem;
-            background: rgba(0, 113, 227, 0.1);
-            border-radius: 8px;
-            color: #0071e3;
-            font-size: 0.9rem;
-            margin-top: 0.5rem;
-        }
-
-        /* Scrollbar styling */
+        /* Scrollbar */
         ::-webkit-scrollbar {
             width: 8px;
+            height: 8px;
         }
 
         ::-webkit-scrollbar-track {
@@ -275,24 +243,23 @@
         }
 
         ::-webkit-scrollbar-thumb {
-            background: rgba(0, 0, 0, 0.1);
+            background: rgba(255,255,255,0.1);
             border-radius: 4px;
         }
 
         ::-webkit-scrollbar-thumb:hover {
-            background: rgba(0, 0, 0, 0.2);
+            background: rgba(255,255,255,0.2);
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <header class="header">
-            <h1>Atlas AI Assistant</h1>
-        </header>
-        
-        <main class="main-content">
-            <section class="upload-section">
-                <h2 class="upload-title">Upload Document</h2>
+        <aside class="sidebar">
+            <button class="new-chat-button">
+                <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="24" width="24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                New chat
+            </button>
+            <div class="file-upload">
                 <form id="file-form">
                     <div class="file-input-wrapper">
                         <input 
@@ -302,38 +269,30 @@
                             accept=".txt,.pdf,.doc,.docx,.csv,.json"
                         >
                     </div>
-                    <button type="submit" class="upload-button">
-                        <span class="button-text">Upload</span>
-                        <div class="loading" style="display: none;">
-                            <div></div><div></div><div></div>
-                        </div>
-                    </button>
-                    <div id="uploaded-files" class="uploaded-file"></div>
                     <div id="file-preview" class="file-preview">
-                        <h3 class="preview-title">Document Preview</h3>
                         <div id="file-content" class="preview-content"></div>
                     </div>
                 </form>
-            </section>
+            </div>
+        </aside>
 
-            <section class="chat-section">
-                <div id="chat-history" class="chat-container"></div>
-                <form id="chat-form" class="input-container">
+        <main class="main-content">
+            <div id="chat-history" class="chat-container"></div>
+            
+            <div class="input-container">
+                <form id="chat-form" class="input-form">
                     <textarea
                         id="user-input"
                         class="message-input"
-                        placeholder="Ask me anything about your document..."
-                        rows="3"
+                        placeholder="Message Atlas AI..."
+                        rows="1"
                         required
                     ></textarea>
                     <button type="submit" class="send-button">
-                        <span class="button-text">Send Message</span>
-                        <div class="loading" style="display: none;">
-                            <div></div><div></div><div></div>
-                        </div>
+                        <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="16" width="16"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
                     </button>
                 </form>
-            </section>
+            </div>
         </main>
     </div>
 
@@ -343,14 +302,35 @@
         let currentFileContent = null;
 
         function addMessageToHistory(message, isUser) {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${isUser ? 'user-message' : 'assistant-message'}`;
-            messageDiv.innerHTML = message;
+            const messageRow = document.createElement('div');
+            messageRow.className = `message-row ${isUser ? 'user-message' : 'assistant-message'}`;
+            
+            const messageContent = document.createElement('div');
+            messageContent.className = 'message-content';
+            
+            const avatar = document.createElement('div');
+            avatar.className = `avatar ${isUser ? 'user-avatar' : 'assistant-avatar'}`;
+            avatar.textContent = isUser ? 'U' : 'A';
+            
+            const messageText = document.createElement('div');
+            messageText.className = 'message-text';
+            messageText.innerHTML = message;
+            
+            messageContent.appendChild(avatar);
+            messageContent.appendChild(messageText);
+            messageRow.appendChild(messageContent);
             
             const chatHistory = document.getElementById('chat-history');
-            chatHistory.appendChild(messageDiv);
+            chatHistory.appendChild(messageRow);
             chatHistory.scrollTop = chatHistory.scrollHeight;
         }
+
+        // Auto-resize textarea
+        const textarea = document.getElementById('user-input');
+        textarea.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        });
 
         document.getElementById('chat-form').addEventListener('submit', async (e) => {
             e.preventDefault();
