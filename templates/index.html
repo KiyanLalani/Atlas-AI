@@ -335,29 +335,7 @@
                 New chat
             </button>
 
-            <div class="chat-list">
-                {% if chats %}
-                    {% for chat_id, messages in chats.items() %}
-                        {# Set default title for empty chats #}
-                        {% set title = 'New Chat' %}
-                        {% if messages|length > 0 %}
-                            {% set first_msg = messages[0] %}
-                            {% if first_msg and first_msg.content is defined and first_msg.content|trim != '' %}
-                                {% set title = first_msg.content[:30] %}
-                                {% if first_msg.content|length > 30 %}
-                                    {% set title = title ~ '...' %}
-                                {% endif %}
-                            {% endif %}
-                        {% endif %}
-                        <a href="#" class="chat-item {% if currentChatId == chat_id %}active{% endif %}" onclick="loadChat('{{ chat_id }}')">
-                            <svg class="chat-icon" stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="16" width="16">
-                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                            </svg>
-                            <span class="chat-title">{{ title }}</span>
-                        </a>
-                    {% endfor %}
-                {% endif %}
-            </div>
+            <div id="chat-list" class="chat-list"></div>
         </aside>
 
         <main class="main-content">
@@ -413,54 +391,59 @@
             return date.toLocaleString();
         }
 
-        // Function to get first message of chat as title
-        function getChatTitle(messages) {
-            if (messages && messages.length > 0) {
-                const firstMessage = messages[0].content;
-                return firstMessage.length > 30 ? firstMessage.substring(0, 30) + '...' : firstMessage;
-            }
-            return 'New Chat';
-        }
-
         function updateChatList() {
             fetch('/api/chats')
                 .then(response => response.json())
                 .then(data => {
-                    const chatList = document.querySelector('.chat-list');
-                    chatList.innerHTML = '';
-                    
-                    if (data.chats) {
-                        // Sort chats by timestamp (newest first)
-                        const sortedChats = Object.entries(data.chats)
-                            .filter(([_, messages]) => messages && messages.length > 0 && messages[0] && messages[0].content)
-                            .sort((a, b) => {
-                                const aTime = a[1][0]?.timestamp || 0;
-                                const bTime = b[1][0]?.timestamp || 0;
-                                return bTime - aTime;
-                            });
-                        
-                        sortedChats.forEach(([chatId, messages]) => {
-                            const chatItem = document.createElement('a');
-                            chatItem.href = '#';
-                            chatItem.className = `chat-item ${currentChatId === chatId ? 'active' : ''}`;
-                            chatItem.onclick = (e) => {
-                                e.preventDefault();
-                                loadChat(chatId);
-                            };
-                            
-                            const firstMessage = messages[0].content;
-                            const truncatedTitle = firstMessage.length > 30 ? firstMessage.substring(0, 30) + '...' : firstMessage;
-                            
-                            chatItem.innerHTML = `
-                                <svg class="chat-icon" stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="16" width="16">
-                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                                </svg>
-                                <span class="chat-title">${truncatedTitle}</span>
-                            `;
-                            
-                            chatList.appendChild(chatItem);
-                        });
-                    }
+                    const chatListContainer = document.getElementById('chat-list');
+                    chatListContainer.innerHTML = '';
+
+                    // Iterate over chats
+                    Object.entries(data.chats).forEach(([chatId, messages]) => {
+                        let title = 'New Chat';
+                        if (messages && messages.length > 0) {
+                            let firstMsg = messages[0];
+                            if (firstMsg.content && firstMsg.content.trim() !== '') {
+                                title = firstMsg.content;
+                                if (title.length > 30) {
+                                    title = title.substring(0, 30) + '...';
+                                }
+                            }
+                        }
+
+                        const chatItem = document.createElement('a');
+                        chatItem.href = '#';
+                        chatItem.className = 'chat-item';
+                        if (currentChatId === chatId) chatItem.classList.add('active');
+                        chatItem.onclick = function(e) {
+                            e.preventDefault();
+                            loadChat(chatId);
+                        };
+
+                        const svgNS = 'http://www.w3.org/2000/svg';
+                        const svg = document.createElementNS(svgNS, 'svg');
+                        svg.setAttribute('class', 'chat-icon');
+                        svg.setAttribute('stroke', 'currentColor');
+                        svg.setAttribute('fill', 'none');
+                        svg.setAttribute('stroke-width', '2');
+                        svg.setAttribute('viewBox', '0 0 24 24');
+                        svg.setAttribute('stroke-linecap', 'round');
+                        svg.setAttribute('stroke-linejoin', 'round');
+                        svg.setAttribute('height', '16');
+                        svg.setAttribute('width', '16');
+
+                        const path = document.createElementNS(svgNS, 'path');
+                        path.setAttribute('d', 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z');
+                        svg.appendChild(path);
+
+                        const span = document.createElement('span');
+                        span.className = 'chat-title';
+                        span.textContent = title;
+
+                        chatItem.appendChild(svg);
+                        chatItem.appendChild(span);
+                        chatListContainer.appendChild(chatItem);
+                    });
                 })
                 .catch(error => console.error('Error updating chat list:', error));
         }

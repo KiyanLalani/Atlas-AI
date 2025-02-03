@@ -122,11 +122,11 @@ def index():
     
     # Get user's chats or all chats for admin
     if is_admin:
-        user_chats = {k: v for k, v in CHATS.items() if v}  # Only include non-empty chats
+        user_chats = CHATS
     else:
         if username not in CHATS:
             CHATS[username] = {}
-        user_chats = {k: v for k, v in CHATS[username].items() if v}  # Only include non-empty chats
+        user_chats = CHATS[username]
     
     return render_template('index.html',
                          username=username,
@@ -284,9 +284,9 @@ def get_chats():
     is_admin = session.get('is_admin', False)
     
     if is_admin:
-        chats_data = {k: v for k, v in CHATS.items() if v and len(v) > 0}
+        chats_data = CHATS
     else:
-        chats_data = {k: v for k, v in CHATS.get(username, {}).items() if v and len(v) > 0}
+        chats_data = CHATS.get(username, {})
     
     return jsonify({'chats': chats_data})
 
