@@ -338,7 +338,6 @@
             <div class="chat-list">
                 {% if chats %}
                     {% for chat_id, messages in chats.items() %}
-                        {# Set default title for empty chats #}
                         {% set title = 'New Chat' %}
                         {% if messages|length > 0 %}
                             {% set first_msg = messages[0] %}
@@ -349,13 +348,15 @@
                                 {% endif %}
                             {% endif %}
                         {% endif %}
-                        <a href="#" class="chat-item {% if currentChatId == chat_id %}active{% endif %}" onclick="loadChat('{{ chat_id }}')">
+                        <a href="#" class="chat-item" onclick="loadChat('{{ chat_id }}')">
                             <svg class="chat-icon" stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="16" width="16">
                                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
                             </svg>
                             <span class="chat-title">{{ title }}</span>
                         </a>
                     {% endfor %}
+                {% else %}
+                    <p>No chats yet.</p>
                 {% endif %}
             </div>
         </aside>
@@ -413,58 +414,8 @@
             return date.toLocaleString();
         }
 
-        // Function to get first message of chat as title
-        function getChatTitle(messages) {
-            if (messages && messages.length > 0) {
-                const firstMessage = messages[0].content;
-                return firstMessage.length > 30 ? firstMessage.substring(0, 30) + '...' : firstMessage;
-            }
-            return 'New Chat';
-        }
-
-        function updateChatList() {
-            fetch('/api/chats')
-                .then(response => response.json())
-                .then(data => {
-                    const chatList = document.querySelector('.chat-list');
-                    chatList.innerHTML = '';
-                    
-                    if (data.chats) {
-                        // Sort chats by timestamp (newest first)
-                        const sortedChats = Object.entries(data.chats)
-                            .filter(([_, messages]) => messages && messages.length > 0 && messages[0] && messages[0].content)
-                            .sort((a, b) => {
-                                const aTime = a[1][0]?.timestamp || 0;
-                                const bTime = b[1][0]?.timestamp || 0;
-                                return bTime - aTime;
-                            });
-                        
-                        sortedChats.forEach(([chatId, messages]) => {
-                            const chatItem = document.createElement('a');
-                            chatItem.href = '#';
-                            chatItem.className = `chat-item ${currentChatId === chatId ? 'active' : ''}`;
-                            chatItem.onclick = (e) => {
-                                e.preventDefault();
-                                loadChat(chatId);
-                            };
-                            
-                            const firstMessage = messages[0].content;
-                            const truncatedTitle = firstMessage.length > 30 ? firstMessage.substring(0, 30) + '...' : firstMessage;
-                            
-                            chatItem.innerHTML = `
-                                <svg class="chat-icon" stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="16" width="16">
-                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                                </svg>
-                                <span class="chat-title">${truncatedTitle}</span>
-                            `;
-                            
-                            chatList.appendChild(chatItem);
-                        });
-                    }
-                })
-                .catch(error => console.error('Error updating chat list:', error));
-        }
-
+        // Removed updateChatList() as chat list is rendered server side
+        
         function startNewChat() {
             // Create new chat
             fetch('/api/new-chat', {
@@ -476,14 +427,8 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Clear the current chat display
-                    currentChatId = data.chat_id;
-                    conversationHistory = [];
-                    document.getElementById('chat-history').innerHTML = '';
-                    document.getElementById('welcome-message').style.display = 'block';
-                    
-                    // Update chat list to show all chats including the previous one
-                    updateChatList();
+                    // Instead of dynamically updating the chat list, simply reload the page
+                    window.location.reload();
                 }
             })
             .catch(error => console.error('Error creating new chat:', error));
@@ -494,31 +439,17 @@
             // Hide welcome message
             document.getElementById('welcome-message').style.display = 'none';
             
-            // Update active state
-            document.querySelectorAll('.chat-item').forEach(item => {
-                item.classList.remove('active');
-            });
-            
+            // Optionally, you can implement AJAX call to load chat history
+            // For now, we'll assume the user will interact and new messages update dynamically
             // Clear current chat display
             document.getElementById('chat-history').innerHTML = '';
             
-            // Load chat history from server
             fetch(`/api/chat/${chatId}`)
                 .then(response => response.json())
                 .then(data => {
                     conversationHistory = data.messages || [];
                     conversationHistory.forEach(msg => {
                         addMessageToHistory(msg.content, msg.role === 'user', msg.timestamp);
-                    });
-                    
-                    // Update active state after loading
-                    document.querySelectorAll('.chat-item').forEach(item => {
-                        if (item.querySelector('.chat-title').textContent === 
-                            (conversationHistory[0]?.content.length > 30 
-                                ? conversationHistory[0].content.substring(0, 30) + '...' 
-                                : conversationHistory[0]?.content)) {
-                            item.classList.add('active');
-                        }
                     });
                     
                     // Scroll to bottom
@@ -623,10 +554,9 @@
                                     messageElement.innerHTML = assistantMessage;
                                 }
                                 
-                                // Update chat list after receiving chat_id
+                                // Update currentChatId if provided
                                 if (data.chat_id) {
                                     currentChatId = data.chat_id;
-                                    updateChatList();
                                 }
                             } catch (e) {
                                 console.error('Error parsing SSE data:', e);
@@ -634,9 +564,6 @@
                         }
                     }
                 }
-                
-                // Update chat list after completion
-                updateChatList();
             } catch (error) {
                 console.error('Error:', error);
             }
@@ -702,10 +629,7 @@
             }
         });
 
-        // Call updateChatList when the page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            updateChatList();
-        });
+        // Removed DOMContentLoaded updateChatList() call since chat list is rendered server-side
     </script>
 </body>
 </html> 
