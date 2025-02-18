@@ -313,6 +313,7 @@
             margin-bottom: 0.5rem;
         }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -473,7 +474,11 @@
             
             const messageText = document.createElement('div');
             messageText.className = 'message-text';
-            messageText.innerHTML = message;
+            if (isUser) {
+                messageText.innerHTML = message;
+            } else {
+                messageText.innerHTML = marked.parse(message);
+            }
             
             if (timestamp) {
                 const timestampDiv = document.createElement('div');
@@ -551,7 +556,7 @@
                                 }
                                 
                                 if (messageElement) {
-                                    messageElement.innerHTML = assistantMessage;
+                                    messageElement.innerHTML = marked.parse(assistantMessage);
                                 }
                                 
                                 // Update currentChatId if provided
