@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, send_from_directory, session, redirect, url_for
+from flask import Flask, render_template, request, jsonify, send_from_directory, session, redirect, url_for, Response
 from openai import OpenAI
 from dotenv import load_dotenv
 import os
@@ -15,6 +15,26 @@ if not os.getenv('PRODUCTION'):
     load_dotenv()
 
 print(f"Starting application in {'production' if os.getenv('PRODUCTION') else 'development'} mode")
+
+TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "search_courtlistener",
+            "description": "Searches CourtListener for legal opinions and filings. Use this tool to find relevant case law or legal documents based on search terms.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "The search query to use on CourtListener.  Be specific and include relevant keywords."
+                    }
+                },
+                "required": ["query"]
+            }
+        }
+    }
+]
 
 # Initialize Flask app
 app = Flask(__name__, static_folder='static')
@@ -201,7 +221,7 @@ def chat():
     try:
         # Generate AI response
         completion = client.chat.completions.create(
-            model="gpt-4",
+            model="gpt-4o-mini",
             messages=[
                 {'role': 'system', 'content': 'You are Atlas AI, a helpful assistant.'},
                 *[{'role': msg['role'], 'content': msg['content']} for msg in CHATS[username][chat_id]]
@@ -227,8 +247,8 @@ def chat():
             # Save chats after AI response
             save_chats_to_file()
             print(f"Saved chat after AI response. Current chats: {json.dumps(CHATS, indent=2)}")
-            
-        return generate(), {'Content-Type': 'text/event-stream'}
+        
+        return Response(generate(), content_type='text/event-stream')
     
     except Exception as e:
         print(f"Error in chat endpoint: {e}")
@@ -456,7 +476,7 @@ def generate():
         
         # Configure the completion with the latest options
         completion = client.with_options(timeout=30.0).chat.completions.create(
-            model="gpt-4o",  # Using the base model which points to latest version
+            model="gpt-4o-mini",  # Using the base model which points to latest version
             messages=messages,
             temperature=0.7,
             max_tokens=16384,
