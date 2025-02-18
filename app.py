@@ -12,6 +12,8 @@ from functools import wraps
 import requests
 import random
 import io
+from typing import List, Dict
+import re
 
 # Load environment variables only in development
 if not os.getenv('PRODUCTION'):
@@ -64,133 +66,107 @@ def generate_random_number(min_value: int, max_value: int) -> int:
     """Generates a random number within a specified range."""
     return random.randint(min_value, max_value)
 
-class CourtListenerSearch:
-    def __init__(self):
-        self.api_token = os.getenv('COURTLISTENER_API_TOKEN')
-        self.base_url = "https://www.courtlistener.com/api/rest/v3"
-        self.headers = {"Authorization": f"Token {self.api_token}"}
-        self.client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+class CourtListenerAPI:
+    def __init__(self, api_token: str):
+        self.api_token = api_token
+        self.headers = {'Authorization': f'Token {api_token}'}
+        self.base_url = 'https://www.courtlistener.com/api/rest/v4'
+
+    def search_cases(self, query: str) -> List[Dict]:
+        """Search for cases and collect the top 3 results (handling pagination)"""
+        all_results = []
+        search_url = f"{self.base_url}/search/?q={query}&type=o"
         
-        # List of user agents to rotate through
-        self.user_agents = [
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0',
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2.1 Safari/605.1.15',
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Edge/120.0.0.0',
-            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        ]
+        while len(all_results) < 3 and search_url:  # Ensure only top 3 results
+            response = requests.get(search_url, headers=self.headers)
+            if response.status_code != 200:
+                raise Exception(f"Search failed with status code: {response.status_code}")
+            
+            data = response.json()
+            all_results.extend(data['results'])
+            search_url = data.get('next')  # Get next page URL if it exists
+            
+            # Respect rate limits
+            time.sleep(1)
         
-    def search_cases(self, query):
-        endpoint = f"{self.base_url}/search/"
-        params = {
-            "q": query,
-            "type": "o"  # opinions
-        }
-        response = requests.get(endpoint, headers=self.headers, params=params)
+        return all_results[:3]  # Return only the top 3 results
+
+    def get_cluster_data(self, cluster_id: int) -> Dict:
+        """Get detailed data for a specific cluster"""
+        cluster_url = f"{self.base_url}/clusters/{cluster_id}/"
+        response = requests.get(cluster_url, headers=self.headers)
         if response.status_code != 200:
-            print(f"Error: API request failed with status {response.status_code}")
-            return None
-        return response.json()
-    
-    def get_case_by_cite(self, citation):
-        endpoint = f"{self.base_url}/search/"
-        params = {
-            "cite": citation,
-            "type": "o"
-        }
-        response = requests.get(endpoint, headers=self.headers, params=params)
-        if response.status_code != 200:
-            print(f"Error: API request failed with status {response.status_code}")
-            return None
+            raise Exception(f"Failed to get cluster {cluster_id}")
         return response.json()
 
-    def scrape_case_text(self, url, document_url):
-        if not document_url:
-            print("Warning: No document URL provided. Cannot download case text.")
-            return None
-        try:
-            print(f"Attempting to download PDF from: {document_url}")
-            user_agent = random.choice(self.user_agents)
-            headers = {'User-Agent': user_agent}
-            
-            # Download PDF using the document URL
-            pdf_response = requests.get(document_url, headers=headers)
-            pdf_response.raise_for_status()
-            if not pdf_response.content:
-                print("Warning: PDF content is empty.")
-            
-            # Read PDF content
-            pdf_file = io.BytesIO(pdf_response.content)
-            pdf_reader = PdfReader(pdf_file)
-            
-            # Extract text from all pages
-            text = ""
-            for i, page in enumerate(pdf_reader.pages):
-                page_text = page.extract_text()
-                if page_text:
-                    text += page_text
-                else:
-                    print(f"Warning: No text found on page {i} of the PDF.")
-            
-            if text.strip():
-                print(f"Successfully extracted text from PDF, character count: {len(text.strip())}")
-                return text.strip()
-            else:
-                print("Warning: PDF text extraction yielded no usable text.")
-                return None
-                    
-        except Exception as e:
-            print(f"Error downloading PDF: {str(e)}")
-            return None
+    def get_opinion_data(self, opinion_id: int) -> Dict:
+        """Get detailed data for a specific opinion"""
+        opinion_url = f"{self.base_url}/opinions/{opinion_id}/"
+        response = requests.get(opinion_url, headers=self.headers)
+        if response.status_code != 200:
+            raise Exception(f"Failed to get opinion {opinion_id}")
+        return response.json()
+    
+    def get_top_clusters(self, num_clusters: int = 3) -> List[Dict]:
+        """Retrieve the data for the top N clusters."""
+        all_clusters = []
+        next_url = f"{self.base_url}/clusters/"
 
-    def format_case_output(self, result):
-        print(f"\nCase: {result.get('caseName')}")
-        print(f"Citation: {result.get('citation', 'N/A')}")
-        print(f"Court: {result.get('court_name', 'N/A')}")
-        print(f"Date: {result.get('dateFiled', 'N/A')}")
-        
-        # Get the absolute URL
-        absolute_url = result.get('absolute_url')
-        if absolute_url:
-            print(f"Link: https://www.courtlistener.com{absolute_url}")
-        
-        # Get PDF URL if available
-        pdf_url = result.get('pdf_url')
-        if pdf_url:
-            print(f"PDF: {pdf_url}")
-            
-        # Get local path if available and construct document URL
-        local_path = result.get('local_path')
-        document_url = None
-        if local_path:
-            document_url = f"https://storage.courtlistener.com/{local_path}"
-            print(f"Document: {document_url}")
-        else:
-            document_url = pdf_url  # Fallback to pdf_url if local path is not available
-        
-        return absolute_url, document_url
+        while len(all_clusters) < num_clusters and next_url:  # Ensure only top N clusters
+            response = requests.get(next_url, headers=self.headers)
+            if response.status_code != 200:
+                print(f"Failed to fetch clusters: {response.status_code}")
+                break
 
-def search_courtlistener(query):
-    """Use the CourtListenerSearch class to perform a search and return results."""
-    cls = CourtListenerSearch()
-    results = cls.search_cases(query)
-    if not results or 'results' not in results:
-        return "No results found or API error occurred"
+            data = response.json()
+            all_clusters.extend(data['results'])
+            next_url = data.get('next')
+
+            time.sleep(1)  # Respect rate limits
+
+        return all_clusters[:num_clusters]  # Return only the top N
+
+    def get_top_opinions(self, num_opinions: int = 3) -> List[Dict]:
+        """Retrieve the data for the top N opinions."""
+        all_opinions = []
+        next_url = f"{self.base_url}/opinions/"
+
+        while len(all_opinions) < num_opinions and next_url:  # Ensure only top N opinions
+            response = requests.get(next_url, headers=self.headers)
+            if response.status_code != 200:
+                print(f"Failed to fetch opinions: {response.status_code}")
+                break
+
+            data = response.json()
+            all_opinions.extend(data['results'])
+            next_url = data.get('next')
+
+            time.sleep(1)  # Respect rate limits
+
+        return all_opinions[:num_opinions]  # Return only the top N
+
+
+def extract_opinion_text(opinion_data):
+    # Get plain text from the opinion data
+    text = opinion_data.get('plain_text')
+    if not text:
+        return None
     
-    found_cases = results.get("results", [])[:5]
-    if not found_cases:
-        return "No matching cases found"
+    # Basic cleaning of the text
+    text = text.strip()
+    text = re.sub(r'\s+', ' ', text)  # Remove excessive whitespace and newlines
     
-    case_texts = []
-    for result in found_cases:
-        url, document_url = cls.format_case_output(result)
-        if url:
-            case_text = cls.scrape_case_text(url, document_url)
-            if case_text:
-                case_texts.append(case_text)
+    # You could also get metadata
+    case_id = opinion_data.get('id')
+    date_filed = opinion_data.get('date_created')
+    author = opinion_data.get('author_str')
     
-    return "\n\n".join(case_texts)
+    return {
+        'case_id': case_id,
+        'text': text,
+        'date_filed': date_filed,
+        'author': author
+    }
 
 # Initialize Flask app
 app = Flask(__name__, static_folder='static')
@@ -414,16 +390,60 @@ def chat():
                         print("Error: Missing 'query' parameter for search_courtlistener.")
                         return jsonify({'error': 'Missing query parameter for search_courtlistener.'}), 500
                     
-                    search_results = search_courtlistener(search_query)
-                    summary = summarize_tool_results(search_results, search_query)
+                    # Initialize CourtListener API
+                    api_token = os.getenv('COURTLISTENER_API_TOKEN')
+                    court_listener_api = CourtListenerAPI(api_token)
                     
-                    CHATS[username][chat_id].append({
-                        'role': 'assistant',
-                        'name': function_name,
-                        'content': summary,
-                        'tool_call_id': tool_call_id,
-                        'timestamp': time.time()
-                    })
+                    try:
+                        # Search for cases
+                        print(f"Searching for: {search_query}")
+                        search_results = court_listener_api.search_cases(search_query)
+                        
+                        opinion_texts = []
+                        # Process each result
+                        for result in search_results:
+                            # Get cluster ID
+                            cluster_id = result.get('cluster_id')
+                            if not cluster_id:
+                                continue
+                                
+                            print(f"\nProcessing cluster {cluster_id}")
+                            
+                            # Get cluster data
+                            cluster_data = court_listener_api.get_cluster_data(cluster_id)
+                            
+                            # Get opinion data for each opinion in the cluster
+                            for opinion in result.get('opinions', []):
+                                opinion_id = opinion.get('id')
+                                if opinion_id:
+                                    print(f"Getting opinion {opinion_id}")
+                                    opinion_data = court_listener_api.get_opinion_data(opinion_id)
+                                    
+                                    # Extract and print opinion text and metadata
+                                    text_data = extract_opinion_text(opinion_data)
+                                    if text_data:
+                                        opinion_texts.append(text_data['text'])
+                            
+                            # Respect rate limits
+                            time.sleep(1)
+                        
+                        # Combine all opinion texts into a single string
+                        combined_opinion_text = "\n".join(opinion_texts)
+                        
+                        # Summarize the combined opinion text
+                        summary = summarize_tool_results(combined_opinion_text, search_query)
+                        
+                        CHATS[username][chat_id].append({
+                            'role': 'assistant',
+                            'name': function_name,
+                            'content': summary,
+                            'tool_call_id': tool_call_id,
+                            'timestamp': time.time()
+                        })
+
+                    except Exception as e:
+                        print(f"An error occurred: {str(e)}")
+                        return jsonify({'error': str(e)}), 500
                 
                 elif function_name == "generate_random_number":
                     min_value = function_args.get("min_value")
