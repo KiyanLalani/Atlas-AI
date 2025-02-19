@@ -14,6 +14,9 @@ import random
 import io
 from typing import List, Dict
 import re
+import uuid
+import asyncio
+from bailii import BailiiScraper
 
 # Load environment variables only in development
 if not os.getenv('PRODUCTION'):
@@ -25,14 +28,14 @@ TOOLS = [
     {
         "type": "function",
         "function": {
-            "name": "search_courtlistener",
-            "description": "Searches CourtListener for legal opinions and filings. Use this tool to find relevant case law or legal documents based on search terms.",
+            "name": "search_bailii",
+            "description": "Searches BAILII for legal opinions and filings. Use this tool to find relevant case law or legal documents based on search terms.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "The search query to use on CourtListener.  Be specific and include relevant keywords."
+                        "description": "The search query to use on BAILII. Be specific and include relevant keywords."
                     }
                 },
                 "required": ["query"]
@@ -65,86 +68,6 @@ TOOLS = [
 def generate_random_number(min_value: int, max_value: int) -> int:
     """Generates a random number within a specified range."""
     return random.randint(min_value, max_value)
-
-class CourtListenerAPI:
-    def __init__(self, api_token: str):
-        self.api_token = api_token
-        self.headers = {'Authorization': f'Token {api_token}'}
-        self.base_url = 'https://www.courtlistener.com/api/rest/v4'
-
-    def search_cases(self, query: str) -> List[Dict]:
-        """Search for cases and collect the top 3 results (handling pagination)"""
-        all_results = []
-        search_url = f"{self.base_url}/search/?q={query}&type=o"
-        
-        while len(all_results) < 3 and search_url:  # Ensure only top 3 results
-            response = requests.get(search_url, headers=self.headers)
-            if response.status_code != 200:
-                raise Exception(f"Search failed with status code: {response.status_code}")
-            
-            data = response.json()
-            all_results.extend(data['results'])
-            search_url = data.get('next')  # Get next page URL if it exists
-            
-            # Respect rate limits
-            time.sleep(1)
-        
-        return all_results[:3]  # Return only the top 3 results
-
-    def get_cluster_data(self, cluster_id: int) -> Dict:
-        """Get detailed data for a specific cluster"""
-        cluster_url = f"{self.base_url}/clusters/{cluster_id}/"
-        response = requests.get(cluster_url, headers=self.headers)
-        if response.status_code != 200:
-            raise Exception(f"Failed to get cluster {cluster_id}")
-        return response.json()
-
-    def get_opinion_data(self, opinion_id: int) -> Dict:
-        """Get detailed data for a specific opinion"""
-        opinion_url = f"{self.base_url}/opinions/{opinion_id}/"
-        response = requests.get(opinion_url, headers=self.headers)
-        if response.status_code != 200:
-            raise Exception(f"Failed to get opinion {opinion_id}")
-        return response.json()
-    
-    def get_top_clusters(self, num_clusters: int = 3) -> List[Dict]:
-        """Retrieve the data for the top N clusters."""
-        all_clusters = []
-        next_url = f"{self.base_url}/clusters/"
-
-        while len(all_clusters) < num_clusters and next_url:  # Ensure only top N clusters
-            response = requests.get(next_url, headers=self.headers)
-            if response.status_code != 200:
-                print(f"Failed to fetch clusters: {response.status_code}")
-                break
-
-            data = response.json()
-            all_clusters.extend(data['results'])
-            next_url = data.get('next')
-
-            time.sleep(1)  # Respect rate limits
-
-        return all_clusters[:num_clusters]  # Return only the top N
-
-    def get_top_opinions(self, num_opinions: int = 3) -> List[Dict]:
-        """Retrieve the data for the top N opinions."""
-        all_opinions = []
-        next_url = f"{self.base_url}/opinions/"
-
-        while len(all_opinions) < num_opinions and next_url:  # Ensure only top N opinions
-            response = requests.get(next_url, headers=self.headers)
-            if response.status_code != 200:
-                print(f"Failed to fetch opinions: {response.status_code}")
-                break
-
-            data = response.json()
-            all_opinions.extend(data['results'])
-            next_url = data.get('next')
-
-            time.sleep(1)  # Respect rate limits
-
-        return all_opinions[:num_opinions]  # Return only the top N
-
 
 def extract_opinion_text(opinion_data):
     # Get plain text from the opinion data
@@ -300,8 +223,8 @@ def new_chat():
     if username not in CHATS:
         CHATS[username] = {}
     
-    # Create new chat ID using timestamp
-    new_chat_id = str(int(time.time()))
+    # Create new chat ID using UUID
+    new_chat_id = str(uuid.uuid4())
     CHATS[username][new_chat_id] = []
     
     # Save chats after creating new chat
@@ -353,7 +276,7 @@ def chat():
     try:
         # Generate AI response
         messages = [
-            {'role': 'system', 'content': 'You are Atlas AI, a helpful assistant. You have access to tools, and in generate random number theres a min and max you have to fill out otherwise people will die and you have to fill out the query param of courtlistener YOU COME UP WITH THE KEYWORDS YOURSELF FOR COURTLISTENER FOR SEARCH. (do very surface level terms ie drugs or ai or stuff like that, dont say extra words since the search engine is very basic) If you use a tool and get results, summarize those results in your final response to the user.'},
+            {'role': 'system', 'content': 'You are Atlas AI, a helpful assistant. You have access to tools, and in generate random number theres a min and max you have to fill out otherwise people will die and you have to fill out the query param of bailii YOU COME UP WITH THE KEYWORDS YOURSELF FOR BAILII FOR SEARCH. (do very surface level terms ie drugs or ai or stuff like that, dont say extra words since the search engine is very basic) If you use a tool and get results, summarize those results in your final response to the user.'},
             *[{'role': msg['role'], 'content': msg['content']} for msg in CHATS[username][chat_id]]
         ]
         
@@ -384,66 +307,45 @@ def chat():
                     print(f"Faulty JSON: {tool_call.function.arguments}")
                     return jsonify({'error': 'Failed to parse tool arguments. Please try again.'}), 500
                 
-                if function_name == "search_courtlistener":
+                if function_name == "search_bailii":
                     search_query = function_args.get("query")
                     if search_query is None:
-                        print("Error: Missing 'query' parameter for search_courtlistener.")
-                        return jsonify({'error': 'Missing query parameter for search_courtlistener.'}), 500
+                        print("Error: Missing 'query' parameter for search_bailii.")
+                        return jsonify({'error': 'Missing query parameter for search_bailii.'}), 500
                     
-                    # Initialize CourtListener API
-                    api_token = os.getenv('COURTLISTENER_API_TOKEN')
-                    court_listener_api = CourtListenerAPI(api_token)
-                    
+                    # Use BailiiScraper to perform the search
+                    print(f"Performing BAILII search for: {search_query}")
+                    scraper = BailiiScraper()
                     try:
-                        # Search for cases
-                        print(f"Searching for: {search_query}")
-                        search_results = court_listener_api.search_cases(search_query)
-                        
-                        opinion_texts = []
-                        # Process each result
-                        for result in search_results:
-                            # Get cluster ID
-                            cluster_id = result.get('cluster_id')
-                            if not cluster_id:
-                                continue
-                                
-                            print(f"\nProcessing cluster {cluster_id}")
-                            
-                            # Get cluster data
-                            cluster_data = court_listener_api.get_cluster_data(cluster_id)
-                            
-                            # Get opinion data for each opinion in the cluster
-                            for opinion in result.get('opinions', []):
-                                opinion_id = opinion.get('id')
-                                if opinion_id:
-                                    print(f"Getting opinion {opinion_id}")
-                                    opinion_data = court_listener_api.get_opinion_data(opinion_id)
-                                    
-                                    # Extract and print opinion text and metadata
-                                    text_data = extract_opinion_text(opinion_data)
-                                    if text_data:
-                                        opinion_texts.append(text_data['text'])
-                            
-                            # Respect rate limits
-                            time.sleep(1)
-                        
-                        # Combine all opinion texts into a single string
-                        combined_opinion_text = "\n".join(opinion_texts)
-                        
-                        # Summarize the combined opinion text
-                        summary = summarize_tool_results(combined_opinion_text, search_query)
-                        
-                        CHATS[username][chat_id].append({
-                            'role': 'assistant',
-                            'name': function_name,
-                            'content': summary,
-                            'tool_call_id': tool_call_id,
-                            'timestamp': time.time()
-                        })
-
+                        search_results = asyncio.run(scraper.run_scraper(search_query))
+                        scraped_contents = search_results if isinstance(search_results, list) else []
                     except Exception as e:
-                        print(f"An error occurred: {str(e)}")
-                        return jsonify({'error': str(e)}), 500
+                        print(f"Error during BAILII search: {e}")
+                        traceback.print_exc()
+                        return jsonify({'error': f'Error during BAILII search: {str(e)}'}), 500
+
+                    # Process each search result and extract text
+                    summaries = []
+                    for result in scraped_contents:
+                        if isinstance(result, str):  # Check if it's HTML content
+                            # Directly use the HTML content with the summarizer
+                            summary = summarize_tool_results(result, search_query)
+                            summaries.append(summary)
+                        else:
+                            print(f"Unexpected result type: {type(result)}")
+                            return jsonify({'error': 'Unexpected result type from BailiiScraper.'}), 500
+
+                    # Combine summaries
+                    combined_summary = "\n".join(summaries)
+
+                    
+                    CHATS[username][chat_id].append({
+                        'role': 'assistant',
+                        'name': function_name,
+                        'content': combined_summary,
+                        'tool_call_id': tool_call_id,
+                        'timestamp': time.time()
+                    })
                 
                 elif function_name == "generate_random_number":
                     min_value = function_args.get("min_value")
@@ -542,11 +444,11 @@ def chat():
 def summarize_tool_results(tool_results, query):
     """Summarizes the results from a tool call using another OpenAI completion."""
     try:
-        prompt = f"Please summarize the following search results from CourtListener, based on the query '{query}'. Focus on the most relevant information.\n\n{tool_results}"
+        prompt = f"Please summarize the following search results from BAILII, based on the query '{query}'. Focus on the most relevant information.\n\n{tool_results}"
         completion = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a helpful assistant that summarizes search results BE EXTREMELY IN DETAIL"},
+                {"role": "system", "content": "You are a helpful assistant that summarizes search results BE EXTREMELY IN DETAIL. please cite links where possible"},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.5,
@@ -757,7 +659,7 @@ def generate():
             2. Highlight key points and important information
             3. Answer questions specifically about the document's content
             4. If something is unclear or not mentioned in the document, say so
-            You have access to tools, and in generate random number there's a min and max you have to fill out otherwise people will die and you have to fill out the query param of courtlistener. YOU COME UP WITH THE KEYWORDS YOURSELF FOR COURTLISTENER FOR SEARCH."""}
+            You have access to tools, and in generate random number there's a min and max you have to fill out otherwise people will die and you have to fill out the query param of bailii. YOU COME UP WITH THE KEYWORDS YOURSELF FOR BAILII FOR SEARCH."""}
         ]
 
         # Add conversation history

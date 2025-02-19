@@ -122,14 +122,15 @@
         }
 
         .avatar {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 500;
-        }
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 500;
+    flex-shrink: 0; /* Prevents the avatar from shrinking */
+}
 
         .user-avatar {
             background: linear-gradient(45deg, #8e2de2, #4a00e0);
